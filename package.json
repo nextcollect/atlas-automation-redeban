@@ -1,0 +1,35 @@
+{
+  "name": "atlas-automation-redeban",
+  "version": "1.0.0",
+  "description": "Atlas Redeban automation with Playwright",
+  "main": "src/redeban.js",
+  "scripts": {
+    "start": "node src/redeban.js",
+    "test": "npm run lint && npm run test:unit",
+    "test:unit": "jest",
+    "lint": "eslint src/**/*.js",
+    "lint:fix": "eslint src/**/*.js --fix",
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "docker:build": "docker build -t atlas-automation-redeban .",
+    "docker:run": "docker run --env-file .env atlas-automation-redeban"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.824.0",
+    "axios": "^1.9.0",
+    "dotenv": "^16.5.0",
+    "https-proxy-agent": "^7.0.6",
+    "playwright": "^1.52.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.2.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nextcollect/atlas-automation-redeban.git"
+  }
+}
