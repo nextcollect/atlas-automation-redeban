@@ -9,9 +9,6 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: atlas-dev-us-east-1-ecr-unicef-colombia-redeban
-  ECS_CLUSTER: atlas-dev-us-east-1-ecs-cmdctr
-  ECS_SERVICE: atlas-dev-us-east-1-svc-cmdctr
   ECR_REGISTRY: 897722707908.dkr.ecr.us-east-1.amazonaws.com
 
 jobs:
@@ -47,9 +44,9 @@ jobs:
             --build-arg BUILD_ID=${{ env.BUILD_ID }} \
             --build-arg COMMIT_SHA=${{ env.COMMIT_SHA }} \
             --build-arg BRANCH=${{ env.BRANCH }} \
-            -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest \
-            -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.BUILD_ID }} \
-            -t ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.COMMIT_SHA }} \
+            -t ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:latest \
+            -t ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ env.BUILD_ID }} \
+            -t ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ env.COMMIT_SHA }} \
             -f docker/Dockerfile \
             .
 
@@ -61,16 +58,16 @@ jobs:
       - name: Push Docker image to ECR
         run: |
           echo "Pushing image to ECR..."
-          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:latest
-          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.BUILD_ID }}
-          docker push ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.COMMIT_SHA }}
+          docker push ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:latest
+          docker push ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ env.BUILD_ID }}
+          docker push ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ env.COMMIT_SHA }}
 
       - name: Update ECS service
         run: |
           echo "Updating ECS service..."
           aws ecs update-service \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --service ${{ env.ECS_SERVICE }} \
+            --cluster ${{ secrets.CLUSTER_NAME }} \
+            --service ${{ secrets.SERVICE_NAME }} \
             --force-new-deployment \
             --query 'service.serviceName' \
             --output text
@@ -79,13 +76,13 @@ jobs:
         run: |
           echo "Waiting for deployment to stabilize..."
           aws ecs wait services-stable \
-            --cluster ${{ env.ECS_CLUSTER }} \
-            --services ${{ env.ECS_SERVICE }}
+            --cluster ${{ secrets.CLUSTER_NAME }} \
+            --services ${{ secrets.SERVICE_NAME }}
 
       - name: Deployment summary
         run: |
           echo "✅ Deployment completed successfully!"
-          echo "📦 Image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.BUILD_ID }}"
+          echo "📦 Image: ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ env.BUILD_ID }}"
           echo "🏗️ Build ID: ${{ env.BUILD_ID }}"
           echo "📝 Commit: ${{ env.COMMIT_SHA }}"
           echo "🌿 Branch: ${{ env.BRANCH }}"
