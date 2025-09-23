@@ -10,7 +10,6 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REGISTRY: 897722707908.dkr.ecr.us-east-1.amazonaws.com
-  ECR_REPOSITORY: atlas-dev-us-east-1-ecr-unicef-colombia-redeban
 
 jobs:
   deploy:
