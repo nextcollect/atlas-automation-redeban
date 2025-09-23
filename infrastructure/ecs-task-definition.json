@@ -9,7 +9,7 @@
   "containerDefinitions": [
     {
       "name": "redeban",
-      "image": "897722707908.dkr.ecr.us-east-1.amazonaws.com/atlas-automation-redeban:latest",
+      "image": "897722707908.dkr.ecr.us-east-1.amazonaws.com/atlas-dev-us-east-1-ecr-unicef-colombia-redeban:latest",
       "cpu": 0,
       "essential": true,
       "logConfiguration": {
