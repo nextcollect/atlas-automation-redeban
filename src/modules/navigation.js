@@ -1,0 +1,601 @@
+/**
+ * Navigation Module for Redeban Automation
+ *
+ * Handles all browser navigation, form interactions, and login processes
+ * for the Redeban portal. Includes comprehensive OTP handling, error detection,
+ * and screenshot capture for evidence collection.
+ *
+ * @author Atlas Automation Team
+ * @version 1.0.0
+ * @module navigation
+ */
+
+const { log } = require('./logger');
+const config = require('./config');
+
+/**
+ * Takes a screenshot of the current page and optionally uploads to S3
+ *
+ * @async
+ * @function takeScreenshot
+ * @param {Page} page - Playwright page object
+ * @param {string} name - Base name for the screenshot file
+ * @param {string} [bucket] - S3 bucket for upload (optional)
+ * @param {string} [processUUID] - Process UUID for S3 organization (optional)
+ * @returns {Promise<void>}
+ */
+async function takeScreenshot(page, name, bucket, processUUID) {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `${name}-${timestamp}.png`;
+    const filePath = `/tmp/${filename}`;
+
+    await page.screenshot({path: filePath, fullPage: true});
+    log(`Screenshot guardado: ${filePath}`, 'info');
+
+    if (bucket && processUUID) {
+      // TODO: Implementar upload a S3 si es necesario
+      // await uploadScreenshotToS3(filePath, `${processUUID}/${filename}`, bucket);
+    }
+  } catch (error) {
+    log(`Error tomando screenshot: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Prompts user for OTP input via console interface with timeout
+ *
+ * @async
+ * @function waitForOTPFromConsole
+ * @param {number} [timeoutMs=30000] - Timeout in milliseconds (default 30 seconds)
+ * @returns {Promise<string>} The OTP code entered by user (trimmed)
+ * @throws {Error} When timeout is reached
+ */
+async function waitForOTPFromConsole(timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    const readline = require('readline');
+    const rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+
+    log('📱 Por favor, revisa tu teléfono/email para el código OTP', 'step');
+    log(`⏰ Tienes ${timeoutMs / 1000} segundos para ingresar el código`, 'warning');
+
+    const timeout = setTimeout(() => {
+      rl.close();
+      reject(new Error(`Timeout: No se ingresó OTP en ${timeoutMs / 1000} segundos`));
+    }, timeoutMs);
+
+    rl.question('🔢 Ingresa el código OTP que recibiste: ', otp => {
+      clearTimeout(timeout);
+      rl.close();
+      resolve(otp.trim());
+    });
+  });
+}
+
+/**
+ * Shows an HTML modal for OTP input using Playwright dialog
+ *
+ * @async
+ * @function showOTPModal
+ * @param {Page} page - Playwright page object
+ * @returns {Promise<string>} The OTP code entered by user
+ */
+async function showOTPModal(page) {
+  try {
+    log('Mostrando modal HTML para ingreso de OTP...', 'step');
+
+    // Inyectar modal HTML en la página
+    const otpValue = await page.evaluate(() => {
+      return new Promise((resolve) => {
+        // Crear overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 999999;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        `;
+
+        // Crear modal
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+          background: white;
+          border-radius: 12px;
+          padding: 32px;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+          max-width: 420px;
+          width: 90%;
+          animation: slideIn 0.3s ease-out;
+        `;
+
+        // Agregar animación
+        const style = document.createElement('style');
+        style.textContent = `
+          @keyframes slideIn {
+            from {
+              opacity: 0;
+              transform: translateY(-20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        `;
+        document.head.appendChild(style);
+
+        // Contenido del modal
+        modal.innerHTML = `
+          <div style="text-align: center; margin-bottom: 24px;">
+            <div style="font-size: 48px; margin-bottom: 16px;">🔐</div>
+            <h2 style="margin: 0 0 8px 0; color: #333; font-size: 24px; font-weight: 600;">Verificación OTP</h2>
+            <p style="margin: 0; color: #666; font-size: 14px;">Por favor, ingresa el código de verificación que recibiste</p>
+          </div>
+
+          <div style="margin-bottom: 24px;">
+            <label style="display: block; margin-bottom: 8px; color: #555; font-size: 14px; font-weight: 500;">Código OTP:</label>
+            <input type="text"
+              id="otp-input"
+              placeholder="Ingresa el código aquí"
+              maxlength="10"
+              style="
+                width: 100%;
+                padding: 12px 16px;
+                border: 2px solid #e1e4e8;
+                border-radius: 8px;
+                font-size: 16px;
+                box-sizing: border-box;
+                transition: border-color 0.2s;
+                text-align: center;
+                letter-spacing: 2px;
+                font-weight: 600;
+              "
+              onfocus="this.style.borderColor='#0969da'"
+              onblur="this.style.borderColor='#e1e4e8'"
+            />
+          </div>
+
+          <div style="display: flex; gap: 12px;">
+            <button
+              id="cancel-btn"
+              style="
+                flex: 1;
+                padding: 12px 20px;
+                background: #f6f8fa;
+                color: #24292e;
+                border: 1px solid #d1d5da;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background-color 0.2s;
+              "
+              onmouseover="this.style.backgroundColor='#f3f4f6'"
+              onmouseout="this.style.backgroundColor='#f6f8fa'"
+            >Cancelar</button>
+
+            <button
+              id="submit-btn"
+              style="
+                flex: 2;
+                padding: 12px 20px;
+                background: #0969da;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background-color 0.2s;
+              "
+              onmouseover="this.style.backgroundColor='#0860ca'"
+              onmouseout="this.style.backgroundColor='#0969da'"
+            >Verificar Código</button>
+          </div>
+        `;
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Focus en el input
+        const input = document.getElementById('otp-input');
+        input.focus();
+
+        // Manejar eventos
+        const submitBtn = document.getElementById('submit-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+
+        const submit = () => {
+          const value = input.value.trim();
+          if (value) {
+            document.body.removeChild(overlay);
+            if (style.parentNode) {
+              style.parentNode.removeChild(style);
+            }
+            resolve(value);
+          } else {
+            input.style.borderColor = '#dc3545';
+            input.placeholder = 'Por favor ingresa un código';
+            setTimeout(() => {
+              input.style.borderColor = '#e1e4e8';
+              input.placeholder = 'Ingresa el código aquí';
+            }, 2000);
+          }
+        };
+
+        submitBtn.onclick = submit;
+        cancelBtn.onclick = () => {
+          document.body.removeChild(overlay);
+          if (style.parentNode) {
+            style.parentNode.removeChild(style);
+          }
+          resolve('');
+        };
+
+        // Permitir envío con Enter
+        input.onkeypress = (e) => {
+          if (e.key === 'Enter') {
+            submit();
+          }
+        };
+      });
+    });
+
+    if (!otpValue) {
+      throw new Error('OTP no proporcionado o cancelado por el usuario');
+    }
+
+    log(`OTP recibido del modal: ${otpValue.substring(0, 2)}****`, 'success');
+    return otpValue;
+
+  } catch (error) {
+    log(`Error mostrando modal OTP: ${error.message}`, 'error');
+    log('Fallback a entrada por consola...', 'warning');
+    // Fallback a consola si el modal falla
+    return await waitForOTPFromConsole();
+  }
+}
+
+async function fillLoginForm(page, username, password) {
+  log('Llenando formulario de login...', 'step');
+
+  // Selectores múltiples para username
+  const usernameSelectors = [
+    'input[name="f_username"]',
+    'input[placeholder="nombre de usuario"]',
+    'input[type="email"]',
+    'input[name="email"]',
+    'input[placeholder*="email"]',
+    'input[placeholder*="correo"]',
+    'input[placeholder*="usuario"]',
+    'input[placeholder*="user"]'
+  ];
+
+  // Selectores múltiples para password
+  const passwordSelectors = [
+    'input[name="f_password"]',
+    'input[type="password"]',
+    'input[name="password"]',
+    'input[placeholder*="password"]',
+    'input[placeholder*="contraseña"]',
+    'input[placeholder*="clave"]'
+  ];
+
+  let usernameFilled = false;
+  let passwordFilled = false;
+
+  // Llenar username
+  for (const selector of usernameSelectors) {
+    try {
+      await page.fill(selector, username);
+      log(`Username llenado con selector: ${selector}`, 'success');
+      usernameFilled = true;
+      break;
+    } catch (error) {
+      // Continuar con el siguiente selector
+    }
+  }
+
+  // Llenar password
+  for (const selector of passwordSelectors) {
+    try {
+      await page.fill(selector, password);
+      log(`Password llenado con selector: ${selector}`, 'success');
+      passwordFilled = true;
+      break;
+    } catch (error) {
+      // Continuar con el siguiente selector
+    }
+  }
+
+  if (!usernameFilled || !passwordFilled) {
+    throw new Error('No se pudieron llenar los campos del formulario');
+  }
+
+  return { usernameFilled, passwordFilled };
+}
+
+async function submitLoginForm(page) {
+  log('Enviando formulario de login...', 'step');
+
+  const submitSelectors = [
+    'button[type="submit"]',
+    'input[type="submit"]',
+    'button:has-text("Ingresar")',
+    'button:has-text("Iniciar")',
+    'button:has-text("Login")',
+    'button:has-text("Entrar")',
+    'button:has-text("Submit")',
+    'form button',
+    'form input[type="submit"]'
+  ];
+
+  let formSubmitted = false;
+  for (const selector of submitSelectors) {
+    try {
+      await page.click(selector);
+      log(`Formulario enviado con selector: ${selector}`, 'success');
+      formSubmitted = true;
+      break;
+    } catch (error) {
+      // Continuar con el siguiente selector
+    }
+  }
+
+  if (!formSubmitted) {
+    // Intentar con Enter key como último recurso
+    try {
+      await page.keyboard.press('Enter');
+      log('Formulario enviado con tecla Enter', 'success');
+      formSubmitted = true;
+    } catch (error) {
+      throw new Error('No se pudo enviar el formulario');
+    }
+  }
+
+  return formSubmitted;
+}
+
+async function handleOTPFlow(page, bucket, processUUID) {
+  log('Verificando si se requiere OTP...', 'step');
+
+  // Esperar un poco para que la página procese
+  await page.waitForTimeout(3000);
+
+  const otpSelectors = [
+    'input[name="f_codigo"]',
+    'input[placeholder="codigo de verificacion"]',
+    'input[placeholder*="OTP"]',
+    'input[placeholder*="código"]',
+    'input[placeholder*="verificación"]',
+    'input[placeholder*="token"]',
+    'input[name*="otp"]',
+    'input[name*="code"]',
+    'input[name*="token"]',
+    'input[type="text"]'
+  ];
+
+  let otpFieldFound = false;
+  let otpSelector = null;
+
+  for (const selector of otpSelectors) {
+    try {
+      const otpField = await page.$(selector);
+      if (otpField) {
+        log(`Campo OTP encontrado: ${selector}`, 'success');
+        otpFieldFound = true;
+        otpSelector = selector;
+        break;
+      }
+    } catch (error) {
+      // Continuar con el siguiente selector
+    }
+  }
+
+  if (!otpFieldFound) {
+    log('No se encontró campo OTP, verificando si el login fue exitoso...', 'warning');
+    return await checkLoginSuccess(page);
+  }
+
+  await takeScreenshot(page, 'otp-page', bucket, processUUID);
+
+  // Solicitar OTP al usuario con timeout de 30 segundos
+  let otp;
+  try {
+    otp = await waitForOTPFromConsole(30000); // 30 segundos
+  } catch (error) {
+    log(`Error obteniendo OTP: ${error.message}`, 'error');
+    throw new Error('OTP no proporcionado o timeout alcanzado');
+  }
+
+  if (!otp) {
+    throw new Error('OTP no proporcionado');
+  }
+
+  // Llenar campo OTP
+  await page.fill(otpSelector, otp);
+  log('Campo OTP llenado', 'success');
+  await takeScreenshot(page, 'otp-filled', bucket, processUUID);
+
+  // Enviar OTP
+  await page.keyboard.press('Enter');
+  log('OTP enviado', 'step');
+
+  // Esperar respuesta
+  await page.waitForTimeout(5000);
+  await takeScreenshot(page, 'otp-response', bucket, processUUID);
+
+  // Verificar si el OTP fue válido
+  return await checkOTPResult(page, bucket, processUUID);
+}
+
+async function checkOTPResult(page, bucket, processUUID) {
+  const currentHTML = await page.content();
+
+  // Verificar errores de OTP inválido
+  const invalidOTPSelectors = [
+    'div.invalid-feedback.d-block',
+    'div.ng-star-inserted:contains("Código inválido")',
+    'div:contains("Código inválido o expirado")',
+    '.invalid-feedback',
+    '[class*="invalid"]'
+  ];
+
+  let invalidOTPFound = false;
+  for (const selector of invalidOTPSelectors) {
+    try {
+      const errorElement = await page.$(selector);
+      if (errorElement) {
+        const errorText = await errorElement.textContent();
+        if (errorText && errorText.includes('Código inválido')) {
+          log(`Error OTP detectado: ${errorText.trim()}`, 'error');
+          invalidOTPFound = true;
+          break;
+        }
+      }
+    } catch (error) {}
+  }
+
+  // También verificar en el HTML completo
+  if (!invalidOTPFound && currentHTML.includes('Código inválido o expirado')) {
+    log('OTP inválido detectado en contenido HTML', 'error');
+    invalidOTPFound = true;
+  }
+
+  if (!invalidOTPFound && currentHTML.includes('invalid-feedback d-block ng-star-inserted')) {
+    log('OTP inválido detectado - estructura HTML específica', 'error');
+    invalidOTPFound = true;
+  }
+
+  if (invalidOTPFound) {
+    await takeScreenshot(page, 'otp-invalid', bucket, processUUID);
+    return { success: false, error: 'OTP inválido o expirado' };
+  }
+
+  // Si no hay errores, verificar éxito del login
+  return await checkLoginSuccess(page);
+}
+
+async function checkLoginSuccess(page) {
+  const currentTitle = await page.title();
+  const currentURL = page.url();
+
+  log(`Título actual: ${currentTitle}`, 'info');
+  log(`URL actual: ${currentURL}`, 'info');
+
+  // Verificar indicadores de login exitoso
+  const successIndicators = [
+    currentTitle.includes('Dashboard'),
+    currentTitle.includes('Home'),
+    currentTitle.includes('Welcome'),
+    currentTitle.includes('Inicio'),
+    currentURL.includes('dashboard'),
+    currentURL.includes('home'),
+    currentURL.includes('main')
+  ];
+
+  const loginSuccessful = successIndicators.some(indicator => indicator);
+
+  if (loginSuccessful) {
+    log('Login exitoso detectado', 'success');
+    return { success: true, message: 'Login completado exitosamente' };
+  } else {
+    log('Estado de login incierto', 'warning');
+    return { success: false, error: 'Estado de login incierto' };
+  }
+}
+
+/**
+ * Performs complete login process for Redeban portal including OTP handling
+ *
+ * @async
+ * @function login
+ * @param {Page} page - Playwright page object
+ * @param {string} siteUrl - Redeban login URL
+ * @param {string} username - Login username
+ * @param {string} password - Login password
+ * @param {string} [bucket] - S3 bucket for evidence storage
+ * @param {string} [processUUID] - Process UUID for organization
+ * @returns {Promise<Object>} Login result object with success boolean and optional error
+ *
+ * @example
+ * const result = await login(page, config.siteUrl, 'user', 'pass', bucket, uuid);
+ * if (result.success) {
+ *   console.log('Login successful');
+ * }
+ */
+async function login(page, siteUrl, username, password, bucket, processUUID) {
+  try {
+    log('Iniciando proceso de login...', 'step');
+    log(`Navegando a: ${siteUrl}`);
+
+    // Navegar a la página de login
+    await page.goto(siteUrl, {waitUntil: 'networkidle', timeout: 30000});
+    await page.waitForLoadState('networkidle');
+    await takeScreenshot(page, 'login-page', bucket, processUUID);
+
+    const currentUrl = page.url();
+    log(`URL actual: ${currentUrl}`);
+
+    // Verificar título de página
+    const pageTitle = await page.title();
+    log(`Título de página: ${pageTitle}`);
+
+    if (!pageTitle.includes('Pagos Recurrentes')) {
+      throw new Error('Página de login no encontrada');
+    }
+
+    // Esperar elementos del formulario
+    log('Esperando elementos del formulario...', 'step');
+    try {
+      await page.waitForSelector('input[name="f_username"], input[placeholder="nombre de usuario"]', { timeout: 10000 });
+      await page.waitForSelector('input[name="f_password"], input[type="password"]', { timeout: 10000 });
+      log('Elementos del formulario encontrados', 'success');
+    } catch (error) {
+      log('Elementos estándar no encontrados, intentando selectores alternativos...', 'warning');
+    }
+
+    // Llenar formulario
+    await fillLoginForm(page, username, password);
+    await takeScreenshot(page, 'form-filled', bucket, processUUID);
+
+    // Enviar formulario
+    await submitLoginForm(page);
+    await page.waitForLoadState('networkidle');
+    await takeScreenshot(page, 'post-login', bucket, processUUID);
+
+    // Manejar flujo OTP con entrada por consola
+    const result = await handleOTPFlow(page, bucket, processUUID);
+
+    if (result.success) {
+      log('Login completado exitosamente', 'success');
+      return result;
+    } else {
+      log(`Error en login: ${result.error}`, 'error');
+      return result;
+    }
+
+  } catch (error) {
+    log(`Error durante login: ${error.message}`, 'error');
+    await takeScreenshot(page, 'login-error', bucket, processUUID);
+    return { success: false, error: error.message };
+  }
+}
+
+module.exports = {
+  login,
+  takeScreenshot,
+  waitForOTPFromConsole,
+  checkLoginSuccess,
+  handleOTPFlow
+};

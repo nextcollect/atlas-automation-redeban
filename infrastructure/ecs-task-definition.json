@@ -1,33 +1,87 @@
 {
-  "family": "atlas-redeban",
+  "family": "atlas-dev-us-east-1-task-redeban",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "1024",
   "memory": "2048",
-  "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/atlas-ecs-execution-role",
-  "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/atlas-redeban-task-role",
+  "executionRoleArn": "arn:aws:iam::897722707908:role/atlas-dev-us-east-1-role-ecs-task-cmdctr",
+  "taskRoleArn": "arn:aws:iam::897722707908:role/atlas-dev-us-east-1-role-ecs-task-cmdctr",
   "containerDefinitions": [
     {
-      "name": "atlas-redeban",
-      "image": "ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/atlas-automation-redeban:latest",
+      "name": "redeban",
+      "image": "897722707908.dkr.ecr.us-east-1.amazonaws.com/atlas-automation-redeban:latest",
+      "cpu": 0,
       "essential": true,
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/atlas-redeban",
+          "awslogs-group": "/ecs/atlas-dev-us-east-1-log-redeban",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
         }
       },
       "environment": [
-        {"name": "NODE_ENV", "value": "production"},
-        {"name": "AWS_REGION", "value": "us-east-1"}
+        {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        },
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        }
       ],
       "secrets": [
-        {"name": "SITE_USERNAME", "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/atlas/redeban/username"},
-        {"name": "SITE_PASSWORD", "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/atlas/redeban/password"},
-        {"name": "SITE_URL", "valueFrom": "arn:aws:ssm:REGION:ACCOUNT_ID:parameter/atlas/redeban/site-url"}
-      ]
+        {
+          "name": "SITE_USERNAME",
+          "valueFrom": "arn:aws:ssm:us-east-1:897722707908:parameter/atlas/redeban/username"
+        },
+        {
+          "name": "SITE_PASSWORD",
+          "valueFrom": "arn:aws:ssm:us-east-1:897722707908:parameter/atlas/redeban/password"
+        },
+        {
+          "name": "SITE_URL",
+          "valueFrom": "arn:aws:ssm:us-east-1:897722707908:parameter/atlas/redeban/site-url"
+        },
+        {
+          "name": "S3_BUCKET_INPUT",
+          "valueFrom": "arn:aws:ssm:us-east-1:897722707908:parameter/atlas/redeban/s3-bucket-input"
+        },
+        {
+          "name": "S3_KEY_INPUT",
+          "valueFrom": "arn:aws:ssm:us-east-1:897722707908:parameter/atlas/redeban/s3-key-input"
+        },
+        {
+          "name": "S3_BUCKET_EVIDENCE",
+          "valueFrom": "arn:aws:ssm:us-east-1:897722707908:parameter/atlas/redeban/s3-bucket-evidence"
+        },
+        {
+          "name": "S3_KEY_PREFIX",
+          "valueFrom": "arn:aws:ssm:us-east-1:897722707908:parameter/atlas/redeban/s3-key-prefix"
+        },
+        {
+          "name": "PROXY_HOST",
+          "valueFrom": "arn:aws:ssm:us-east-1:897722707908:parameter/atlas/redeban/proxy-host"
+        },
+        {
+          "name": "PROXY_PORT",
+          "valueFrom": "arn:aws:ssm:us-east-1:897722707908:parameter/atlas/redeban/proxy-port"
+        },
+        {
+          "name": "PROXY_USERNAME",
+          "valueFrom": "arn:aws:ssm:us-east-1:897722707908:parameter/atlas/redeban/proxy-username"
+        },
+        {
+          "name": "PROXY_PASSWORD",
+          "valueFrom": "arn:aws:ssm:us-east-1:897722707908:parameter/atlas/redeban/proxy-password"
+        }
+      ],
+      "mountPoints": [],
+      "portMappings": [],
+      "systemControls": [],
+      "volumesFrom": []
     }
-  ]
+  ],
+  "placementConstraints": [],
+  "volumes": []
 }

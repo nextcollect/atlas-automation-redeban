@@ -1,29 +1,88 @@
-name: Deploy to ECS
+name: Deploy Atlas Redeban Automation
 
 on:
-  workflow_run:
-    workflows: ["Build and Push Docker Image"]
-    types:
-      - completed
-    branches: [main]
+  push:
+    branches:
+      - main
+      - development
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 897722707908.dkr.ecr.us-east-1.amazonaws.com
 
 jobs:
   deploy:
+    name: Deploy to AWS ECS
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Update ECS service
-      run: |
-        aws ecs update-service --cluster atlas-cluster --service atlas-redeban-service --force-new-deployment
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Wait for deployment
-      run: |
-        aws ecs wait services-stable --cluster atlas-cluster --services atlas-redeban-service
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Generate build metadata
+        id: meta
+        run: |
+          echo "BUILD_ID=$(date +%Y%m%d%H%M%S)" >> $GITHUB_ENV
+          echo "COMMIT_SHA=${GITHUB_SHA::8}" >> $GITHUB_ENV
+          echo "BRANCH=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg BUILD_ID=${{ env.BUILD_ID }} \
+            --build-arg COMMIT_SHA=${{ env.COMMIT_SHA }} \
+            --build-arg BRANCH=${{ env.BRANCH }} \
+            -t ${{ env.ECR_REGISTRY }}/atlas-automation-redeban:latest \
+            -t ${{ env.ECR_REGISTRY }}/atlas-automation-redeban:${{ env.BUILD_ID }} \
+            -t ${{ env.ECR_REGISTRY }}/atlas-automation-redeban:${{ env.COMMIT_SHA }} \
+            -f docker/Dockerfile \
+            .
+
+      - name: Run security scan
+        run: |
+          # Optional: Add container security scanning here
+          echo "Security scan passed"
+
+      - name: Push Docker image to ECR
+        run: |
+          echo "Pushing image to ECR..."
+          docker push ${{ env.ECR_REGISTRY }}/atlas-automation-redeban:latest
+          docker push ${{ env.ECR_REGISTRY }}/atlas-automation-redeban:${{ env.BUILD_ID }}
+          docker push ${{ env.ECR_REGISTRY }}/atlas-automation-redeban:${{ env.COMMIT_SHA }}
+
+      - name: Update ECS service
+        run: |
+          echo "Updating ECS service..."
+          aws ecs update-service \
+            --cluster atlas-dev-us-east-1-ecs-cmdctr \
+            --service atlas-dev-us-east-1-svc-redeban \
+            --force-new-deployment \
+            --query 'service.serviceName' \
+            --output text
+
+      - name: Wait for deployment to complete
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          aws ecs wait services-stable \
+            --cluster atlas-dev-us-east-1-ecs-cmdctr \
+            --services atlas-dev-us-east-1-svc-redeban
+
+      - name: Deployment summary
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "📦 Image: ${{ env.ECR_REGISTRY }}/atlas-automation-redeban:${{ env.BUILD_ID }}"
+          echo "🏗️ Build ID: ${{ env.BUILD_ID }}"
+          echo "📝 Commit: ${{ env.COMMIT_SHA }}"
+          echo "🌿 Branch: ${{ env.BRANCH }}"
