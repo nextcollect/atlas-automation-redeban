@@ -3,9 +3,9 @@
 set -e
 
 # Configuration
-CLUSTER_NAME="atlas-cluster"
-SERVICE_NAME="atlas-SERVICE_NAME-service"
-TASK_DEFINITION="atlas-SERVICE_NAME"
+CLUSTER_NAME="atlas-dev-us-east-1-ecs-cmdctr"
+SERVICE_NAME="atlas-dev-us-east-1-svc-redeban"
+TASK_DEFINITION="atlas-dev-us-east-1-task-redeban"
 
 # Colors
 GREEN='\033[0;32m'

@@ -6,6 +6,7 @@ npm-debug.log*
 .env
 .env.local
 .env.production
+nodemon.json
 
 # Logs
 *.log
