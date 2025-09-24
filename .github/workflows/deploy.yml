@@ -65,8 +65,8 @@ jobs:
         run: |
           echo "Updating ECS service..."
           aws ecs update-service \
-            --cluster atlas-dev-us-east-1-ecs-cmdctr \
-            --service atlas-dev-us-east-1-svc-redeban \
+            --cluster ${{ secrets.CLUSTER_NAME }} \
+            --service ${{ secrets.SERVICE_NAME }} \
             --force-new-deployment \
             --query 'service.serviceName' \
             --output text
@@ -75,13 +75,13 @@ jobs:
         run: |
           echo "Waiting for deployment to stabilize..."
           aws ecs wait services-stable \
-            --cluster atlas-dev-us-east-1-ecs-cmdctr \
-            --services atlas-dev-us-east-1-svc-redeban
+            --cluster ${{ secrets.CLUSTER_NAME }} \
+            --services ${{ secrets.SERVICE_NAME }}
 
       - name: Deployment summary
         run: |
-          echo "✅ Deployment completed successfully!"
-          echo "📦 Image: ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ env.BUILD_ID }}"
-          echo "🏗️ Build ID: ${{ env.BUILD_ID }}"
-          echo "📝 Commit: ${{ env.COMMIT_SHA }}"
-          echo "🌿 Branch: ${{ env.BRANCH }}"
+          echo "Deployment completed successfully!"
+          echo "Image: ${{ env.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ env.BUILD_ID }}"
+          echo "Build ID: ${{ env.BUILD_ID }}"
+          echo "Commit: ${{ env.COMMIT_SHA }}"
+          echo "sBranch: ${{ env.BRANCH }}"
