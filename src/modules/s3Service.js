@@ -228,7 +228,7 @@ async function downloadInputFileFromS3(key) {
 }
 
 async function uploadScreenshotToS3(filePath, filename, bucket, processUUID) {
-  const key = `redeban/${processUUID}/screenshots/${filename}`;
+  const key = `${processUUID}/screenshots/${filename}`;
   const body = fs.readFileSync(filePath);
   const command = new PutObjectCommand({
     Bucket: bucket,
@@ -258,7 +258,7 @@ async function writeMetadataToS3(status, details, processUUID) {
     environment: process.env.NODE_ENV || 'development'
   };
 
-  const key = `redeban/${processUUID}/metadata.json`;
+  const key = `${processUUID}/redeban-metadata.json`;
   const command = new PutObjectCommand({
     Bucket: 'atlas-dev-us-east-1-s3-cmdctr-metadata', // Bucket específico para Redeban metadata
     Key: key,
@@ -283,7 +283,7 @@ async function uploadLogToS3(logData, filename, bucket, processUUID) {
       return;
     }
 
-    const key = `redeban/${processUUID}/logs/${filename}`;
+    const key = `${processUUID}/logs/${filename}`;
 
     const command = new PutObjectCommand({
       Bucket: bucket,
@@ -310,7 +310,7 @@ async function uploadInputFileToS3(filePath, bucket, processUUID) {
 
     const body = fs.readFileSync(filePath);
     const filename = `input-${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
-    const key = `redeban/${processUUID}/input/${filename}`;
+    const key = `${processUUID}/input/${filename}`;
 
     const command = new PutObjectCommand({
       Bucket: bucket,

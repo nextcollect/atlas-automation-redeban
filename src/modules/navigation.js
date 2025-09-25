@@ -12,6 +12,7 @@
 
 const { log } = require('./logger');
 const config = require('./config');
+const { uploadScreenshotToS3 } = require('./s3Service');
 
 /**
  * Takes a screenshot of the current page and optionally uploads to S3
@@ -31,11 +32,14 @@ async function takeScreenshot(page, name, bucket, processUUID) {
     const filePath = `/tmp/${filename}`;
 
     await page.screenshot({path: filePath, fullPage: true});
-    log(`Screenshot guardado: ${filePath}`, 'info');
+    log(`Screenshot guardado localmente: ${filePath}`, 'info');
 
     if (bucket && processUUID) {
-      // TODO: Implementar upload a S3 si es necesario
-      // await uploadScreenshotToS3(filePath, `${processUUID}/${filename}`, bucket);
+      // Subir screenshot a S3
+      await uploadScreenshotToS3(filePath, filename, bucket, processUUID);
+      log(`Screenshot subido a S3: s3://${bucket}/${processUUID}/screenshots/${filename}`, 'success');
+    } else {
+      log('No se proporcionaron parámetros S3, screenshot solo guardado localmente', 'warning');
     }
   } catch (error) {
     log(`Error tomando screenshot: ${error.message}`, 'error');
