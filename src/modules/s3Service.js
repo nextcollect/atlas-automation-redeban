@@ -260,7 +260,7 @@ async function writeMetadataToS3(status, details, processUUID) {
 
   const key = `redeban/${processUUID}/metadata.json`;
   const command = new PutObjectCommand({
-    Bucket: 'atlas-dev-us-east-1-s3-cmdctr-metadata-redeban', // Bucket específico para Redeban metadata
+    Bucket: 'atlas-dev-us-east-1-s3-cmdctr-metadata', // Bucket específico para Redeban metadata
     Key: key,
     Body: JSON.stringify(metadata, null, 2),
     ContentType: 'application/json'
