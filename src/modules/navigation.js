@@ -47,6 +47,38 @@ async function takeScreenshot(page, name, bucket, processUUID) {
 }
 
 /**
+ * Waits for OTP input from WebSocket connection (for Fargate containers)
+ *
+ * @async
+ * @function waitForOTPFromWebSocket
+ * @param {number} [timeoutMs=120000] - Timeout in milliseconds (default 2 minutes)
+ * @returns {Promise<string>} The OTP code received via WebSocket
+ * @throws {Error} When timeout is reached or no OTP received
+ */
+async function waitForOTPFromWebSocket(timeoutMs = 120000) {
+  return new Promise((resolve, reject) => {
+    log('📱 Por favor, revisa tu teléfono/email para el código OTP', 'step');
+    log(`⏰ Esperando código OTP desde command center (timeout: ${timeoutMs / 1000}s)`, 'info');
+
+    const timeout = setTimeout(() => {
+      reject(new Error(`Timeout: No se recibió OTP en ${timeoutMs / 1000} segundos`));
+    }, timeoutMs);
+
+    // Crear un listener temporal para el OTP
+    // En un entorno real, esto se conectaría al WebSocket del command center
+    // Por ahora, simulamos un timeout después del tiempo especificado
+    log('🔢 Ingresa el código OTP que recibiste: ', 'info');
+
+    // TODO: Implementar conexión WebSocket real al command center
+    // Por ahora mantenemos el comportamiento existente pero con mejor logging
+    setTimeout(() => {
+      clearTimeout(timeout);
+      reject(new Error('OTP no implementado para WebSocket - usando timeout'));
+    }, timeoutMs);
+  });
+}
+
+/**
  * Prompts user for OTP input via console interface with timeout
  *
  * @async
@@ -413,10 +445,23 @@ async function handleOTPFlow(page, bucket, processUUID) {
 
   await takeScreenshot(page, 'otp-page', bucket, processUUID);
 
-  // Solicitar OTP al usuario con timeout de 30 segundos
+  // Solicitar OTP al usuario con timeout extendido para Fargate
   let otp;
   try {
-    otp = await waitForOTPFromConsole(30000); // 30 segundos
+    // Detectar si estamos en Fargate (sin stdin disponible)
+    const isProduction = process.env.NODE_ENV === 'production';
+    const timeoutMs = isProduction ? 120000 : 30000; // 2 minutos en prod, 30s en dev
+
+    log(`⏰ Timeout configurado: ${timeoutMs / 1000} segundos (${isProduction ? 'production' : 'development'})`, 'info');
+
+    if (isProduction && !process.stdin.isTTY) {
+      log('🔄 Entorno de producción detectado - esperando OTP desde command center', 'info');
+      // Por ahora usamos la función de consola con timeout extendido
+      // El command center debería mostrar el modal al ver estos mensajes
+      otp = await waitForOTPFromConsole(timeoutMs);
+    } else {
+      otp = await waitForOTPFromConsole(timeoutMs);
+    }
   } catch (error) {
     log(`Error obteniendo OTP: ${error.message}`, 'error');
     throw new Error('OTP no proporcionado o timeout alcanzado');
@@ -519,6 +564,76 @@ async function checkLoginSuccess(page) {
   }
 }
 
+async function checkCredentialErrors(page) {
+  log('Verificando errores de credenciales...', 'step');
+
+  const currentURL = page.url();
+  const currentHTML = await page.content();
+
+  // Selectores comunes para errores de credenciales
+  const credentialErrorSelectors = [
+    'div.invalid-feedback.d-block',
+    '.alert-danger',
+    '.error-message',
+    '[class*="error"]',
+    '[class*="invalid"]',
+    'div:contains("Usuario o contraseña incorrectos")',
+    'div:contains("Credenciales inválidas")',
+    'div:contains("Login failed")',
+    'div:contains("Acceso denegado")',
+    '.ng-invalid'
+  ];
+
+  // Verificar selectores específicos
+  for (const selector of credentialErrorSelectors) {
+    try {
+      const errorElement = await page.$(selector);
+      if (errorElement) {
+        const errorText = await errorElement.textContent();
+        if (errorText && (
+          errorText.includes('incorrectos') ||
+          errorText.includes('inválidas') ||
+          errorText.includes('failed') ||
+          errorText.includes('denegado') ||
+          errorText.includes('error')
+        )) {
+          return errorText.trim();
+        }
+      }
+    } catch (error) {
+      // Continuar con el siguiente selector
+    }
+  }
+
+  // Verificar en el contenido HTML completo
+  const credentialErrorPatterns = [
+    'Usuario o contraseña incorrectos',
+    'Credenciales inválidas',
+    'Login failed',
+    'Acceso denegado',
+    'Authentication failed',
+    'Invalid username or password'
+  ];
+
+  for (const pattern of credentialErrorPatterns) {
+    if (currentHTML.includes(pattern)) {
+      return pattern;
+    }
+  }
+
+  // Verificar si seguimos en la misma página de login después del intento
+  if (currentURL.includes('login') || currentURL.includes('auth')) {
+    const title = await page.title();
+    if (title.includes('Pagos Recurrentes') || title.includes('Login')) {
+      // Si todavía estamos en la página de login, puede ser un error de credenciales
+      log('Aún en página de login después del envío - posibles credenciales incorrectas', 'warning');
+      return 'Posibles credenciales incorrectas - permanece en página de login';
+    }
+  }
+
+  return null; // No se detectaron errores de credenciales
+}
+
 /**
  * Performs complete login process for Redeban portal including OTP handling
  *
@@ -578,6 +693,24 @@ async function login(page, siteUrl, username, password, bucket, processUUID) {
     await page.waitForLoadState('networkidle');
     await takeScreenshot(page, 'post-login', bucket, processUUID);
 
+    // Verificar errores de credenciales antes de proceder con OTP
+    const credentialError = await checkCredentialErrors(page);
+    if (credentialError) {
+      log(`Credenciales incorrectas detectadas: ${credentialError}`, 'error');
+      await takeScreenshot(page, 'credential-error', bucket, processUUID);
+
+      // Cerrar sesión del navegador cuando hay error de credenciales
+      try {
+        log('Cerrando sesión del navegador debido a credenciales incorrectas...', 'step');
+        await page.close();
+        log('Sesión del navegador cerrada', 'success');
+      } catch (closeError) {
+        log(`Error cerrando sesión: ${closeError.message}`, 'warning');
+      }
+
+      return { success: false, error: `Credenciales incorrectas: ${credentialError}` };
+    }
+
     // Manejar flujo OTP con entrada por consola
     const result = await handleOTPFlow(page, bucket, processUUID);
 
@@ -592,6 +725,18 @@ async function login(page, siteUrl, username, password, bucket, processUUID) {
   } catch (error) {
     log(`Error durante login: ${error.message}`, 'error');
     await takeScreenshot(page, 'login-error', bucket, processUUID);
+
+    // Cerrar sesión del navegador en caso de error general
+    try {
+      if (page && !page.isClosed()) {
+        log('Cerrando sesión del navegador debido a error en login...', 'step');
+        await page.close();
+        log('Sesión del navegador cerrada', 'success');
+      }
+    } catch (closeError) {
+      log(`Error cerrando sesión: ${closeError.message}`, 'warning');
+    }
+
     return { success: false, error: error.message };
   }
 }
@@ -600,6 +745,7 @@ module.exports = {
   login,
   takeScreenshot,
   waitForOTPFromConsole,
+  waitForOTPFromWebSocket,
   checkLoginSuccess,
   handleOTPFlow
 };
