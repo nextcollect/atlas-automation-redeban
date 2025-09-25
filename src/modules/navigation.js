@@ -570,18 +570,14 @@ async function checkCredentialErrors(page) {
   const currentURL = page.url();
   const currentHTML = await page.content();
 
-  // Selectores comunes para errores de credenciales
+  // Selectores específicos para errores de credenciales (más restrictivos)
   const credentialErrorSelectors = [
-    'div.invalid-feedback.d-block',
     '.alert-danger',
     '.error-message',
-    '[class*="error"]',
-    '[class*="invalid"]',
-    'div:contains("Usuario o contraseña incorrectos")',
-    'div:contains("Credenciales inválidas")',
-    'div:contains("Login failed")',
-    'div:contains("Acceso denegado")',
-    '.ng-invalid'
+    'div.invalid-feedback.d-block:contains("incorrectos")',
+    'div.invalid-feedback.d-block:contains("inválidas")',
+    'div[class*="error"]:contains("usuario")',
+    'div[class*="error"]:contains("contraseña")'
   ];
 
   // Verificar selectores específicos
@@ -590,13 +586,7 @@ async function checkCredentialErrors(page) {
       const errorElement = await page.$(selector);
       if (errorElement) {
         const errorText = await errorElement.textContent();
-        if (errorText && (
-          errorText.includes('incorrectos') ||
-          errorText.includes('inválidas') ||
-          errorText.includes('failed') ||
-          errorText.includes('denegado') ||
-          errorText.includes('error')
-        )) {
+        if (errorText && errorText.toLowerCase().includes('Credenciales incorrectas')) {
           return errorText.trim();
         }
       }
@@ -605,31 +595,14 @@ async function checkCredentialErrors(page) {
     }
   }
 
-  // Verificar en el contenido HTML completo
-  const credentialErrorPatterns = [
-    'Usuario o contraseña incorrectos',
-    'Credenciales inválidas',
-    'Login failed',
-    'Acceso denegado',
-    'Authentication failed',
-    'Invalid username or password'
-  ];
-
-  for (const pattern of credentialErrorPatterns) {
-    if (currentHTML.includes(pattern)) {
-      return pattern;
-    }
+  // Verificar en el contenido HTML completo - solo el texto exacto
+  if (currentHTML.toLowerCase().includes('Credenciales incorrectas')) {
+    return 'Credenciales incorrectas';
   }
 
-  // Verificar si seguimos en la misma página de login después del intento
-  if (currentURL.includes('login') || currentURL.includes('auth')) {
-    const title = await page.title();
-    if (title.includes('Pagos Recurrentes') || title.includes('Login')) {
-      // Si todavía estamos en la página de login, puede ser un error de credenciales
-      log('Aún en página de login después del envío - posibles credenciales incorrectas', 'warning');
-      return 'Posibles credenciales incorrectas - permanece en página de login';
-    }
-  }
+  // Solo verificar errores explícitos, NO asumir error por estar en página de login
+  // (puede ser una página intermedia o de OTP)
+  log('No se detectaron mensajes de error explícitos de credenciales', 'info');
 
   return null; // No se detectaron errores de credenciales
 }
