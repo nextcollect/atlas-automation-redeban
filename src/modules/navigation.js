@@ -56,25 +56,36 @@ async function takeScreenshot(page, name, bucket, processUUID) {
  * @throws {Error} When timeout is reached or no OTP received
  */
 async function waitForOTPFromWebSocket(timeoutMs = 120000) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     log('📱 Por favor, revisa tu teléfono/email para el código OTP', 'step');
     log(`⏰ Esperando código OTP desde command center (timeout: ${timeoutMs / 1000}s)`, 'info');
-
-    const timeout = setTimeout(() => {
-      reject(new Error(`Timeout: No se recibió OTP en ${timeoutMs / 1000} segundos`));
-    }, timeoutMs);
-
-    // Crear un listener temporal para el OTP
-    // En un entorno real, esto se conectaría al WebSocket del command center
-    // Por ahora, simulamos un timeout después del tiempo especificado
     log('🔢 Ingresa el código OTP que recibiste: ', 'info');
 
-    // TODO: Implementar conexión WebSocket real al command center
-    // Por ahora mantenemos el comportamiento existente pero con mejor logging
-    setTimeout(() => {
-      clearTimeout(timeout);
-      reject(new Error('OTP no implementado para WebSocket - usando timeout'));
-    }, timeoutMs);
+    const processId = process.env.PROCESS_UUID || 'default';
+    const commandCenterURL = process.env.COMMAND_CENTER_URL || 'http://localhost:3000';
+
+    try {
+      const response = await fetch(`${commandCenterURL}/request-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ processId }),
+        timeout: timeoutMs
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.otp) {
+        log(`OTP recibido desde command center: ${data.otp.substring(0, 2)}****`, 'success');
+        resolve(data.otp);
+      } else {
+        reject(new Error(data.error || 'No se recibió OTP desde command center'));
+      }
+    } catch (error) {
+      log(`Error conectando con command center: ${error.message}`, 'error');
+      reject(new Error(`No se pudo conectar al command center: ${error.message}`));
+    }
   });
 }
 
@@ -456,9 +467,7 @@ async function handleOTPFlow(page, bucket, processUUID) {
 
     if (isProduction && !process.stdin.isTTY) {
       log('🔄 Entorno de producción detectado - esperando OTP desde command center', 'info');
-      // Por ahora usamos la función de consola con timeout extendido
-      // El command center debería mostrar el modal al ver estos mensajes
-      otp = await waitForOTPFromConsole(timeoutMs);
+      otp = await waitForOTPFromWebSocket(timeoutMs);
     } else {
       otp = await waitForOTPFromConsole(timeoutMs);
     }
