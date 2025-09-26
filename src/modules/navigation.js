@@ -62,26 +62,70 @@ async function waitForOTPFromWebSocket(timeoutMs = 120000) {
     log('🔢 Ingresa el código OTP que recibiste: ', 'info');
 
     const processId = process.env.PROCESS_UUID || 'default';
-    const commandCenterURL = process.env.COMMAND_CENTER_URL || 'http://localhost:3000';
+    const commandCenterURL = process.env.COMMAND_CENTER_URL || 'http://host.docker.internal:3000';
+
+    log(`Intentando conectar a command center: ${commandCenterURL}`, 'info');
 
     try {
-      const response = await fetch(`${commandCenterURL}/request-otp`, {
+      const https = require('https');
+      const http = require('http');
+      const url = require('url');
+
+      const parsedUrl = url.parse(`${commandCenterURL}/request-otp`);
+      const isHttps = parsedUrl.protocol === 'https:';
+      const client = isHttps ? https : http;
+
+      const postData = JSON.stringify({ processId });
+
+      const options = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (isHttps ? 443 : 80),
+        path: parsedUrl.path,
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
         },
-        body: JSON.stringify({ processId }),
         timeout: timeoutMs
+      };
+
+      log(`Opciones de conexión: ${JSON.stringify(options)}`, 'info');
+
+      const req = client.request(options, (res) => {
+        let data = '';
+
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+
+        res.on('end', () => {
+          try {
+            const response = JSON.parse(data);
+            if (response.success && response.otp) {
+              log(`OTP recibido desde command center: ${response.otp.substring(0, 2)}****`, 'success');
+              resolve(response.otp);
+            } else {
+              reject(new Error(response.error || 'No se recibió OTP desde command center'));
+            }
+          } catch (parseError) {
+            reject(new Error(`Error parsing response: ${parseError.message}`));
+          }
+        });
       });
 
-      const data = await response.json();
+      req.on('error', (error) => {
+        log(`Error en request HTTP: ${error.message}`, 'error');
+        reject(new Error(`No se pudo conectar al command center: ${error.message}`));
+      });
 
-      if (data.success && data.otp) {
-        log(`OTP recibido desde command center: ${data.otp.substring(0, 2)}****`, 'success');
-        resolve(data.otp);
-      } else {
-        reject(new Error(data.error || 'No se recibió OTP desde command center'));
-      }
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error(`Timeout conectando al command center después de ${timeoutMs}ms`));
+      });
+
+      req.write(postData);
+      req.end();
+
     } catch (error) {
       log(`Error conectando con command center: ${error.message}`, 'error');
       reject(new Error(`No se pudo conectar al command center: ${error.message}`));
