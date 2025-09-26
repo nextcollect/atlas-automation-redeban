@@ -68,12 +68,16 @@ async function waitForOTPFromWebSocket(timeoutMs = 120000) {
 
     const checkForOTPFile = async () => {
       try {
+        log(`Verificando archivo OTP en: ${otpFilePath}`, 'info');
         const otp = await fs.readFile(otpFilePath, 'utf8');
+
+        log(`Contenido del archivo OTP: "${otp}"`, 'info');
 
         if (otp && /^\d{6}$/.test(otp.trim())) {
           // Limpiar el archivo
           try {
             await fs.unlink(otpFilePath);
+            log(`Archivo OTP eliminado: ${otpFilePath}`, 'info');
           } catch (unlinkError) {
             log(`Warning: No se pudo eliminar archivo OTP: ${unlinkError.message}`, 'warning');
           }
@@ -81,9 +85,14 @@ async function waitForOTPFromWebSocket(timeoutMs = 120000) {
           log(`OTP recibido desde command center: ${otp.trim().substring(0, 2)}****`, 'success');
           resolve(otp.trim());
           return;
+        } else {
+          log(`OTP inválido o vacío: "${otp}"`, 'warning');
         }
       } catch (error) {
         // El archivo no existe aún, continuar esperando
+        if (elapsedTime % 10000 === 0) { // Log cada 10 segundos
+          log(`Archivo OTP no encontrado, esperando... (${elapsedTime / 1000}s)`, 'info');
+        }
       }
 
       elapsedTime += checkInterval;
