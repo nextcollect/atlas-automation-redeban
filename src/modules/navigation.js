@@ -61,75 +61,43 @@ async function waitForOTPFromWebSocket(timeoutMs = 120000) {
     log(`⏰ Esperando código OTP desde command center (timeout: ${timeoutMs / 1000}s)`, 'info');
     log('🔢 Ingresa el código OTP que recibiste: ', 'info');
 
-    const processId = process.env.PROCESS_UUID || 'default';
-    const commandCenterURL = process.env.COMMAND_CENTER_URL || 'http://host.docker.internal:3000';
+    const fs = require('fs').promises;
+    const otpFilePath = '/tmp/otp-input.txt';
+    const checkInterval = 1000; // Check every second
+    let elapsedTime = 0;
 
-    log(`Intentando conectar a command center: ${commandCenterURL}`, 'info');
+    const checkForOTPFile = async () => {
+      try {
+        const otp = await fs.readFile(otpFilePath, 'utf8');
 
-    try {
-      const https = require('https');
-      const http = require('http');
-      const url = require('url');
-
-      const parsedUrl = url.parse(`${commandCenterURL}/request-otp`);
-      const isHttps = parsedUrl.protocol === 'https:';
-      const client = isHttps ? https : http;
-
-      const postData = JSON.stringify({ processId });
-
-      const options = {
-        hostname: parsedUrl.hostname,
-        port: parsedUrl.port || (isHttps ? 443 : 80),
-        path: parsedUrl.path,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData)
-        },
-        timeout: timeoutMs
-      };
-
-      log(`Opciones de conexión: ${JSON.stringify(options)}`, 'info');
-
-      const req = client.request(options, (res) => {
-        let data = '';
-
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-
-        res.on('end', () => {
+        if (otp && /^\d{6}$/.test(otp.trim())) {
+          // Limpiar el archivo
           try {
-            const response = JSON.parse(data);
-            if (response.success && response.otp) {
-              log(`OTP recibido desde command center: ${response.otp.substring(0, 2)}****`, 'success');
-              resolve(response.otp);
-            } else {
-              reject(new Error(response.error || 'No se recibió OTP desde command center'));
-            }
-          } catch (parseError) {
-            reject(new Error(`Error parsing response: ${parseError.message}`));
+            await fs.unlink(otpFilePath);
+          } catch (unlinkError) {
+            log(`Warning: No se pudo eliminar archivo OTP: ${unlinkError.message}`, 'warning');
           }
-        });
-      });
 
-      req.on('error', (error) => {
-        log(`Error en request HTTP: ${error.message}`, 'error');
-        reject(new Error(`No se pudo conectar al command center: ${error.message}`));
-      });
+          log(`OTP recibido desde command center: ${otp.trim().substring(0, 2)}****`, 'success');
+          resolve(otp.trim());
+          return;
+        }
+      } catch (error) {
+        // El archivo no existe aún, continuar esperando
+      }
 
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error(`Timeout conectando al command center después de ${timeoutMs}ms`));
-      });
+      elapsedTime += checkInterval;
+      if (elapsedTime >= timeoutMs) {
+        reject(new Error(`Timeout: No se recibió OTP en ${timeoutMs / 1000} segundos`));
+        return;
+      }
 
-      req.write(postData);
-      req.end();
+      // Continue checking
+      setTimeout(checkForOTPFile, checkInterval);
+    };
 
-    } catch (error) {
-      log(`Error conectando con command center: ${error.message}`, 'error');
-      reject(new Error(`No se pudo conectar al command center: ${error.message}`));
-    }
+    // Start checking
+    setTimeout(checkForOTPFile, checkInterval);
   });
 }
 
