@@ -61,6 +61,15 @@ async function waitForOTPFromWebSocket(timeoutMs = 120000) {
     log(`⏰ Esperando código OTP desde command center (timeout: ${timeoutMs / 1000}s)`, 'info');
     log('🔢 Ingresa el código OTP que recibiste: ', 'info');
 
+    // Verificar permisos del directorio /tmp al inicio
+    try {
+      const fs = require('fs').promises;
+      const tmpStats = await fs.stat('/tmp');
+      log(`📊 Permisos directorio /tmp: ${tmpStats.mode.toString(8)}`, 'info');
+    } catch (error) {
+      log(`⚠️ No se puede acceder a /tmp: ${error.message}`, 'warning');
+    }
+
     const fs = require('fs').promises;
     const otpFilePath = '/tmp/otp-input.txt';
     const checkInterval = 1000; // Check every second
@@ -68,36 +77,63 @@ async function waitForOTPFromWebSocket(timeoutMs = 120000) {
 
     const checkForOTPFile = async () => {
       try {
-        log(`Verificando archivo OTP en: ${otpFilePath}`, 'info');
+        log(`🔍 Verificando archivo OTP en: ${otpFilePath} (${elapsedTime / 1000}s)`, 'info');
+
+        // Verificar si el archivo existe primero
+        const fileExists = await fs.access(otpFilePath).then(() => true).catch(() => false);
+
+        if (!fileExists) {
+          if (elapsedTime % 10000 === 0) { // Log cada 10 segundos
+            log(`📂 Archivo OTP no encontrado, esperando... (${elapsedTime / 1000}s)`, 'info');
+          }
+
+          elapsedTime += checkInterval;
+          if (elapsedTime >= timeoutMs) {
+            reject(new Error(`Timeout: No se recibió OTP en ${timeoutMs / 1000} segundos`));
+            return;
+          }
+
+          setTimeout(checkForOTPFile, checkInterval);
+          return;
+        }
+
+        // El archivo existe, intentar leerlo
         const otp = await fs.readFile(otpFilePath, 'utf8');
+        log(`📄 Contenido del archivo OTP: "${otp}" (length: ${otp.length})`, 'info');
 
-        log(`Contenido del archivo OTP: "${otp}"`, 'info');
+        const cleanOtp = otp.trim();
 
-        if (otp && /^\d{6}$/.test(otp.trim())) {
+        if (cleanOtp && /^\d{6}$/.test(cleanOtp)) {
           // Limpiar el archivo
           try {
             await fs.unlink(otpFilePath);
-            log(`Archivo OTP eliminado: ${otpFilePath}`, 'info');
+            log(`🗑️ Archivo OTP eliminado: ${otpFilePath}`, 'info');
           } catch (unlinkError) {
-            log(`Warning: No se pudo eliminar archivo OTP: ${unlinkError.message}`, 'warning');
+            log(`⚠️ Warning: No se pudo eliminar archivo OTP: ${unlinkError.message}`, 'warning');
           }
 
-          log(`OTP recibido desde command center: ${otp.trim().substring(0, 2)}****`, 'success');
-          resolve(otp.trim());
+          log(`✅ OTP recibido desde command center: ${cleanOtp.substring(0, 2)}****`, 'success');
+          resolve(cleanOtp);
           return;
         } else {
-          log(`OTP inválido o vacío: "${otp}"`, 'warning');
+          log(`❌ OTP inválido o vacío: "${cleanOtp}" (regex test: ${/^\d{6}$/.test(cleanOtp)})`, 'warning');
+
+          // Si el OTP es inválido, eliminar el archivo y continuar esperando
+          try {
+            await fs.unlink(otpFilePath);
+            log(`🗑️ Archivo OTP inválido eliminado`, 'info');
+          } catch (unlinkError) {
+            log(`⚠️ Warning: No se pudo eliminar archivo OTP inválido: ${unlinkError.message}`, 'warning');
+          }
         }
       } catch (error) {
-        // El archivo no existe aún, continuar esperando
-        if (elapsedTime % 10000 === 0) { // Log cada 10 segundos
-          log(`Archivo OTP no encontrado, esperando... (${elapsedTime / 1000}s)`, 'info');
-        }
+        // Error leyendo el archivo (puede estar siendo escrito)
+        log(`⚠️ Error leyendo archivo OTP (puede estar siendo escrito): ${error.message}`, 'warning');
       }
 
       elapsedTime += checkInterval;
       if (elapsedTime >= timeoutMs) {
-        reject(new Error(`Timeout: No se recibió OTP en ${timeoutMs / 1000} segundos`));
+        reject(new Error(`Timeout: No se recibió OTP válido en ${timeoutMs / 1000} segundos`));
         return;
       }
 
