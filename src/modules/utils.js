@@ -164,10 +164,10 @@ async function checkNetworkConnectivity(browser, siteUrl) {
 
     const pageDirect = await contextDirect.newPage();
 
-    // Intentar cargar la página con timeout corto
+    // Intentar cargar la página con timeout más largo para Fargate
     const response = await pageDirect.goto(siteUrl, {
       waitUntil: 'domcontentloaded',
-      timeout: 15000
+      timeout: 45000
     });
 
     const statusCode = response.status();

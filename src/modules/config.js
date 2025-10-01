@@ -74,7 +74,22 @@ const config = {
       '--disable-extensions',
       '--disable-blink-features=AutomationControlled',
       '--exclude-switches=enable-automation',
-      '--disable-ipc-flooding-protection'
+      '--disable-ipc-flooding-protection',
+      // AWS Fargate specific flags
+      '--single-process',
+      '--no-zygote',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-features=TranslateUI',
+      '--disable-accelerated-2d-canvas',
+      '--disable-accelerated-jpeg-decoding',
+      '--disable-accelerated-mjpeg-decode',
+      '--disable-accelerated-video-decode',
+      '--disable-accelerated-video-encode',
+      '--disable-app-list-dismiss-on-blur',
+      '--disable-audio-output',
+      '--memory-pressure-off'
     ]
   }
 };

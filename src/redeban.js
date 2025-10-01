@@ -87,12 +87,15 @@ async function uploadFile() {
     ...config.browserOptions,
     // Configuración adicional para evitar detección
     ignoreDefaultArgs: ['--enable-automation'],
+    timeout: 60000, // Timeout más largo para Fargate
     env: {
       ...process.env,
       // Eliminar variables que identifican automatización
       'npm_config_user_agent': '',
       'npm_lifecycle_event': '',
-      'npm_lifecycle_script': ''
+      'npm_lifecycle_script': '',
+      // Variables específicas para Fargate
+      'DISPLAY': ':99'
     }
   });
 
