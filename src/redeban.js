@@ -73,24 +73,6 @@ async function uploadFile() {
   log('Iniciando automatización Redeban...', 'step');
   log(`Process UUID: ${processUUID}`, 'info');
 
-  // DIAGNÓSTICO DE CONECTIVIDAD - TEMPORAL
-  log('🔧 EJECUTANDO DIAGNÓSTICO DE PUERTOS...', 'step');
-  try {
-    const { runPortConnectivityTests } = require('../test-port-connectivity');
-    await runPortConnectivityTests();
-  } catch (error) {
-    log(`Error en diagnóstico de puertos: ${error.message}`, 'error');
-  }
-  log('🔧 DIAGNÓSTICO DE PUERTOS COMPLETADO', 'step');
-
-  log('🔧 EJECUTANDO PRUEBAS DE CONECTIVIDAD...', 'step');
-  try {
-    const { runConnectivityTests } = require('../test-connectivity');
-    await runConnectivityTests();
-  } catch (error) {
-    log(`Error en pruebas de conectividad: ${error.message}`, 'error');
-  }
-  log('🔧 PRUEBAS DE CONECTIVIDAD COMPLETADAS', 'step');
 
   // Escribir metadata de inicio
   await writeMetadataToS3('started', {
@@ -99,7 +81,20 @@ async function uploadFile() {
     startTime: startTime.toISOString()
   }, processUUID);
 
-  const browser = await chromium.launch(config.browserOptions);
+  // Lanzar navegador con configuración anti-detección máxima
+  log('🔧 Lanzando navegador con configuración anti-detección...', 'info');
+  const browser = await chromium.launch({
+    ...config.browserOptions,
+    // Configuración adicional para evitar detección
+    ignoreDefaultArgs: ['--enable-automation'],
+    env: {
+      ...process.env,
+      // Eliminar variables que identifican automatización
+      'npm_config_user_agent': '',
+      'npm_lifecycle_event': '',
+      'npm_lifecycle_script': ''
+    }
+  });
 
   // Verificar conectividad automáticamente
   const connectivityResult = await checkNetworkConnectivity(browser, config.siteUrl);

@@ -736,6 +736,41 @@ async function login(page, siteUrl, username, password, bucket, processUUID) {
         if (parameter === 37446) return 'Intel(R) Iris(R) Xe Graphics';
         return getParameter(parameter);
       };
+
+      // Ocultar automatización en window.chrome
+      if (!window.chrome) {
+        window.chrome = {};
+      }
+      window.chrome.runtime = {
+        onConnect: undefined,
+        onMessage: undefined
+      };
+
+      // Reemplazar Date para comportamiento más natural
+      const originalDate = Date;
+      window.Date = class extends originalDate {
+        constructor(...args) {
+          if (args.length === 0) {
+            super();
+          } else {
+            super(...args);
+          }
+        }
+        static now() {
+          return originalDate.now() + Math.floor(Math.random() * 100);
+        }
+      };
+
+      // Modificar Math.random para ser menos predecible
+      const originalRandom = Math.random;
+      Math.random = () => {
+        return originalRandom.call(Math) * 0.9999999 + 0.0000001;
+      };
+
+      // Eliminar rastros de headless
+      Object.defineProperty(window.navigator, 'webdriver', {
+        get: () => false,
+      });
     });
 
     await page.goto(siteUrl, {waitUntil: 'domcontentloaded', timeout: 60000});

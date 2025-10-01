@@ -50,7 +50,31 @@ const config = {
       '--disable-software-rasterizer',
       '--ignore-certificate-errors',
       '--ignore-certificate-errors-spki-list',
-      '--ignore-ssl-errors'
+      '--ignore-ssl-errors',
+      '--disable-web-security',
+      '--disable-features=VizDisplayCompositor',
+      '--disable-background-networking',
+      '--disable-background-timer-throttling',
+      '--disable-renderer-backgrounding',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-client-side-phishing-detection',
+      '--disable-default-apps',
+      '--disable-hang-monitor',
+      '--disable-popup-blocking',
+      '--disable-prompt-on-repost',
+      '--disable-sync',
+      '--disable-translate',
+      '--disable-windows10-custom-titlebar',
+      '--metrics-recording-only',
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--password-store=basic',
+      '--use-mock-keychain',
+      '--disable-component-extensions-with-background-pages',
+      '--disable-extensions',
+      '--disable-blink-features=AutomationControlled',
+      '--exclude-switches=enable-automation',
+      '--disable-ipc-flooding-protection'
     ]
   }
 };
