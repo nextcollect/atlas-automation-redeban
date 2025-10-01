@@ -73,7 +73,16 @@ async function uploadFile() {
   log('Iniciando automatización Redeban...', 'step');
   log(`Process UUID: ${processUUID}`, 'info');
 
-  // PRUEBA DE CONECTIVIDAD - TEMPORAL
+  // DIAGNÓSTICO DE CONECTIVIDAD - TEMPORAL
+  log('🔧 EJECUTANDO DIAGNÓSTICO DE PUERTOS...', 'step');
+  try {
+    const { runPortConnectivityTests } = require('../test-port-connectivity');
+    await runPortConnectivityTests();
+  } catch (error) {
+    log(`Error en diagnóstico de puertos: ${error.message}`, 'error');
+  }
+  log('🔧 DIAGNÓSTICO DE PUERTOS COMPLETADO', 'step');
+
   log('🔧 EJECUTANDO PRUEBAS DE CONECTIVIDAD...', 'step');
   try {
     const { runConnectivityTests } = require('../test-connectivity');

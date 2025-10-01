@@ -190,15 +190,12 @@ async function checkNetworkConnectivity(browser, siteUrl) {
   } catch (error) {
     log(`❌ Conexión directa falló: ${error.message}`, 'error');
 
-    // Como estás en Venezuela y Redeban requiere IP de Colombia, SIEMPRE usar proxy
+    // TEMPORAL: Las pruebas muestran que Node.js directo funciona desde Fargate
+    // pero el proxy Oxylabs no es accesible desde las subnets privadas
     const errorInfo = parsePlaywrightError(error);
-    if (errorInfo.type === 'network' || errorInfo.type === 'timeout') {
-      log('🇨🇴 Se requiere proxy Colombia para acceso a Redeban desde Venezuela', 'warning');
-      return { useProxy: true, error: errorInfo.message };
-    } else {
-      log('🇨🇴 Error desconocido, usando proxy Colombia obligatorio', 'warning');
-      return { useProxy: true, error: errorInfo.message };
-    }
+    log('🔧 TEMPORAL: Node.js directo funciona pero Playwright falla - intentando configuración especial', 'warning');
+    log('🔧 NOTA: Proxy Oxylabs no accesible desde subnets privadas AWS', 'warning');
+    return { useProxy: false, error: errorInfo.message, forceDirectConnection: true };
   }
 }
 
@@ -257,21 +254,30 @@ async function createOptimalBrowserContext(browser, config, connectivityResult =
 
     return await browser.newContext(proxyConfig);
   } else {
-    log('Configurando contexto directo con configuración especial...', 'info');
+    log('🔧 Configurando contexto directo con configuración especial (Proxy no disponible en AWS)...', 'info');
 
-    // Usar configuración especial basada en las pruebas de conectividad
+    // Configuración especial que imita exitosa conexión Node.js
     const specialConfig = {
       ...baseConfig,
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      viewport: { width: 1920, height: 1080 },
       extraHTTPHeaders: {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'es-CO,es;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'es-CO,es-419;q=0.9,es;q=0.8,en;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br, zstd',
+        'Cache-Control': 'max-age=0',
+        'Sec-Ch-Ua': '"Chromium";v="120", "Not_A Brand";v="24", "Google Chrome";v="120"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
         'Upgrade-Insecure-Requests': '1'
       }
     };
 
+    log('🔧 Usando user-agent Chrome Windows con headers completos', 'info');
     return await browser.newContext(specialConfig);
   }
 }

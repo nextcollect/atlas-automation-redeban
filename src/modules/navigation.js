@@ -697,9 +697,18 @@ async function login(page, siteUrl, username, password, bucket, processUUID) {
     log('Iniciando proceso de login...', 'step');
     log(`Navegando a: ${siteUrl}`);
 
-    // Navegar a la página de login (debe usar proxy Colombia)
-    log('🇨🇴 Navegando con proxy Colombia...', 'info');
-    await page.goto(siteUrl, {waitUntil: 'domcontentloaded', timeout: 45000});
+    // Navegar a la página de login con configuración especial
+    log('🔧 Navegando con configuración especial de compatibilidad...', 'info');
+
+    // Configuraciones adicionales para evitar detección
+    await page.addInitScript(() => {
+      // Eliminar propiedades que identifican automatización
+      delete window.navigator.webdriver;
+      Object.defineProperty(window.navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      Object.defineProperty(window.navigator, 'languages', { get: () => ['es-CO', 'es', 'en'] });
+    });
+
+    await page.goto(siteUrl, {waitUntil: 'domcontentloaded', timeout: 60000});
     await page.waitForLoadState('networkidle');
     await takeScreenshot(page, 'login-page', bucket, processUUID);
 
