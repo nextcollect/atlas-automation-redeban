@@ -700,12 +700,42 @@ async function login(page, siteUrl, username, password, bucket, processUUID) {
     // Navegar a la página de login con configuración especial
     log('🔧 Navegando con configuración especial de compatibilidad...', 'info');
 
-    // Configuraciones adicionales para evitar detección
+    // Configuraciones anti-detección avanzadas
     await page.addInitScript(() => {
-      // Eliminar propiedades que identifican automatización
+      // Eliminar todas las propiedades de automatización
       delete window.navigator.webdriver;
-      Object.defineProperty(window.navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-      Object.defineProperty(window.navigator, 'languages', { get: () => ['es-CO', 'es', 'en'] });
+      delete window.navigator.__webdriver_script_fn;
+      delete window.navigator.__webdriver_evaluate;
+      delete window.navigator.__selenium_unwrapped;
+      delete window.navigator.__webdriver_unwrapped;
+      delete window.navigator.__driver_evaluate;
+      delete window.navigator.__webdriver_script_func;
+      delete window.navigator.__webdriver_script_function;
+
+      // Sobrescribir propiedades del navegador
+      Object.defineProperty(window.navigator, 'plugins', {
+        get: () => [
+          { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
+          { name: 'Chromium PDF Plugin', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
+          { name: 'Microsoft Edge PDF Plugin', filename: 'pdf' },
+          { name: 'WebKit built-in PDF', filename: 'internal-pdf-viewer' }
+        ]
+      });
+      Object.defineProperty(window.navigator, 'languages', { get: () => ['es-ES', 'es', 'en-US', 'en'] });
+      Object.defineProperty(window.navigator, 'webdriver', { get: () => undefined });
+
+      // Simular propiedades reales del navegador
+      Object.defineProperty(window.navigator, 'hardwareConcurrency', { get: () => 8 });
+      Object.defineProperty(window.navigator, 'deviceMemory', { get: () => 8 });
+      Object.defineProperty(window.navigator, 'platform', { get: () => 'Win32' });
+
+      // Simular WebGL
+      const getParameter = WebGLRenderingContext.getParameter;
+      WebGLRenderingContext.prototype.getParameter = function(parameter) {
+        if (parameter === 37445) return 'Intel Inc.';
+        if (parameter === 37446) return 'Intel(R) Iris(R) Xe Graphics';
+        return getParameter(parameter);
+      };
     });
 
     await page.goto(siteUrl, {waitUntil: 'domcontentloaded', timeout: 60000});
