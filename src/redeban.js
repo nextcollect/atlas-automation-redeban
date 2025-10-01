@@ -73,6 +73,16 @@ async function uploadFile() {
   log('Iniciando automatización Redeban...', 'step');
   log(`Process UUID: ${processUUID}`, 'info');
 
+  // PRUEBA DE CONECTIVIDAD - TEMPORAL
+  log('🔧 EJECUTANDO PRUEBAS DE CONECTIVIDAD...', 'step');
+  try {
+    const { runConnectivityTests } = require('../test-connectivity');
+    await runConnectivityTests();
+  } catch (error) {
+    log(`Error en pruebas de conectividad: ${error.message}`, 'error');
+  }
+  log('🔧 PRUEBAS DE CONECTIVIDAD COMPLETADAS', 'step');
+
   // Escribir metadata de inicio
   await writeMetadataToS3('started', {
     siteUrl: config.siteUrl,

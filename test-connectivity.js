@@ -1,0 +1,263 @@
+#!/usr/bin/env node
+
+/**
+ * Script de prueba de conectividad para diagnosticar problemas de red
+ * con Redeban desde el contenedor Fargate existente
+ */
+
+const https = require('https');
+const http = require('http');
+const { URL } = require('url');
+const config = require('./src/modules/config');
+
+const REDEBAN_URL = config.siteUrl;
+
+function log(message, level = 'info') {
+  const timestamp = new Date().toISOString();
+  const prefix = level === 'error' ? '❌' : level === 'success' ? '✅' : 'ℹ️';
+  console.log(`[${timestamp}] ${prefix} ${message}`);
+}
+
+// Test 1: Conectividad directa
+async function testDirectConnection() {
+  log('=== PRUEBA 1: Conectividad Directa ===');
+
+  return new Promise((resolve) => {
+    const url = new URL(REDEBAN_URL);
+    const startTime = Date.now();
+
+    const options = {
+      hostname: url.hostname,
+      port: 443,
+      path: url.pathname,
+      method: 'GET',
+      timeout: 15000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+      }
+    };
+
+    const req = https.request(options, (res) => {
+      const responseTime = Date.now() - startTime;
+      log(`✅ Conexión directa exitosa`, 'success');
+      log(`   Status: ${res.statusCode}`);
+      log(`   Tiempo de respuesta: ${responseTime}ms`);
+
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        const hasRedebanContent = data.includes('Pagos Recurrentes') || data.includes('redeban');
+        log(`   Contenido Redeban detectado: ${hasRedebanContent ? 'SÍ' : 'NO'}`);
+        resolve({ success: true, statusCode: res.statusCode, responseTime, hasRedebanContent });
+      });
+    });
+
+    req.on('error', (error) => {
+      const responseTime = Date.now() - startTime;
+      log(`❌ Error en conexión directa: ${error.message}`, 'error');
+      log(`   Código de error: ${error.code}`);
+      log(`   Tiempo transcurrido: ${responseTime}ms`);
+      resolve({ success: false, error: error.message, code: error.code, responseTime });
+    });
+
+    req.on('timeout', () => {
+      const responseTime = Date.now() - startTime;
+      log(`❌ Timeout en conexión directa (${responseTime}ms)`, 'error');
+      req.destroy();
+      resolve({ success: false, error: 'TIMEOUT', responseTime });
+    });
+
+    req.end();
+  });
+}
+
+// Test 2: Conectividad vía proxy
+async function testProxyConnection() {
+  log('\n=== PRUEBA 2: Conectividad vía Proxy Oxylabs ===');
+
+  return new Promise((resolve) => {
+    const url = new URL(REDEBAN_URL);
+    const startTime = Date.now();
+    const auth = Buffer.from(`${config.proxyUsername}:${config.proxyPassword}`).toString('base64');
+
+    log(`Proxy: ${config.proxyHost}:${config.proxyPort}`);
+    log(`Usuario: ${config.proxyUsername.substring(0, 20)}...`);
+
+    const proxyOptions = {
+      hostname: config.proxyHost,
+      port: config.proxyPort,
+      method: 'CONNECT',
+      path: `${url.hostname}:443`,
+      headers: {
+        'Proxy-Authorization': `Basic ${auth}`,
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+      },
+      timeout: 20000
+    };
+
+    const proxyReq = http.request(proxyOptions);
+
+    proxyReq.on('connect', (res, socket, head) => {
+      log(`✅ Conexión CONNECT al proxy exitosa (Status: ${res.statusCode})`, 'success');
+
+      const httpsOptions = {
+        socket: socket,
+        servername: url.hostname,
+        path: url.pathname,
+        method: 'GET',
+        headers: {
+          'Host': url.hostname,
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        }
+      };
+
+      const httpsReq = https.request(httpsOptions, (httpsRes) => {
+        const responseTime = Date.now() - startTime;
+        log(`✅ Respuesta de Redeban vía proxy recibida`, 'success');
+        log(`   Status: ${httpsRes.statusCode}`);
+        log(`   Tiempo de respuesta: ${responseTime}ms`);
+
+        let data = '';
+        httpsRes.on('data', chunk => data += chunk);
+        httpsRes.on('end', () => {
+          const hasRedebanContent = data.includes('Pagos Recurrentes') || data.includes('redeban');
+          log(`   Contenido Redeban detectado: ${hasRedebanContent ? 'SÍ' : 'NO'}`);
+          resolve({ success: true, statusCode: httpsRes.statusCode, responseTime, hasRedebanContent });
+        });
+      });
+
+      httpsReq.on('error', (error) => {
+        const responseTime = Date.now() - startTime;
+        log(`❌ Error en petición HTTPS vía proxy: ${error.message}`, 'error');
+        resolve({ success: false, error: error.message, responseTime });
+      });
+
+      httpsReq.end();
+    });
+
+    proxyReq.on('error', (error) => {
+      const responseTime = Date.now() - startTime;
+      log(`❌ Error conectando al proxy: ${error.message}`, 'error');
+      log(`   Código de error: ${error.code}`);
+      log(`   Tiempo transcurrido: ${responseTime}ms`);
+      resolve({ success: false, error: error.message, code: error.code, responseTime });
+    });
+
+    proxyReq.on('timeout', () => {
+      const responseTime = Date.now() - startTime;
+      log(`❌ Timeout conectando al proxy (${responseTime}ms)`, 'error');
+      proxyReq.destroy();
+      resolve({ success: false, error: 'TIMEOUT', responseTime });
+    });
+
+    proxyReq.end();
+  });
+}
+
+// Test 3: Resolución DNS
+async function testDNSResolution() {
+  log('\n=== PRUEBA 3: Resolución DNS ===');
+
+  return new Promise((resolve) => {
+    const dns = require('dns');
+    const hostname = 'pagosrecurrentes.redebandigital.com';
+
+    dns.lookup(hostname, (err, address, family) => {
+      if (err) {
+        log(`❌ Error en resolución DNS: ${err.message}`, 'error');
+        resolve({ success: false, error: err.message });
+      } else {
+        log(`✅ DNS resuelto correctamente`, 'success');
+        log(`   ${hostname} → ${address} (IPv${family})`);
+        resolve({ success: true, address, family });
+      }
+    });
+  });
+}
+
+// Test 4: Verificar variables de entorno
+function testEnvironmentVariables() {
+  log('\n=== PRUEBA 4: Variables de Entorno ===');
+
+  const envVars = {
+    'SITE_URL': config.siteUrl,
+    'PROXY_HOST': config.proxyHost,
+    'PROXY_PORT': config.proxyPort,
+    'PROXY_USERNAME': config.proxyUsername ? config.proxyUsername.substring(0, 20) + '...' : 'NOT SET',
+    'PROXY_PASSWORD': config.proxyPassword ? '***SET***' : 'NOT SET'
+  };
+
+  Object.entries(envVars).forEach(([key, value]) => {
+    log(`   ${key}: ${value}`);
+  });
+
+  return envVars;
+}
+
+// Función principal
+async function runConnectivityTests() {
+  log('🔍 Iniciando pruebas de conectividad para Redeban desde Fargate');
+  log(`Target: ${REDEBAN_URL}`);
+  log('================================================\n');
+
+  try {
+    // Test variables de entorno
+    const envVars = testEnvironmentVariables();
+
+    // Test DNS
+    const dnsResult = await testDNSResolution();
+
+    // Test conexión directa
+    const directResult = await testDirectConnection();
+
+    // Test conexión vía proxy
+    const proxyResult = await testProxyConnection();
+
+    // Resumen
+    log('\n=== RESUMEN DE RESULTADOS ===');
+    log(`DNS Resolution: ${dnsResult.success ? '✅ OK' : '❌ FAIL'}`);
+    log(`Conexión Directa: ${directResult.success ? '✅ OK' : '❌ FAIL'}`);
+    log(`Conexión vía Proxy: ${proxyResult.success ? '✅ OK' : '❌ FAIL'}`);
+
+    // Diagnóstico
+    if (directResult.success && proxyResult.success) {
+      log('\n🎉 DIAGNÓSTICO: Ambas conexiones funcionan. El problema está en Playwright o timing.', 'success');
+      log('   RECOMENDACIÓN: Aumentar timeouts en Playwright o revisar user-agent.');
+    } else if (!directResult.success && proxyResult.success) {
+      log('\n✅ DIAGNÓSTICO: Solo el proxy funciona. Esto es lo esperado en subnets privadas.', 'success');
+      log('   RECOMENDACIÓN: Forzar uso de proxy desde el inicio en checkNetworkConnectivity().');
+    } else if (directResult.success && !proxyResult.success) {
+      log('\n⚠️ DIAGNÓSTICO: Solo conexión directa funciona. Credenciales de proxy pueden estar expiradas.', 'error');
+      log('   RECOMENDACIÓN: Verificar credenciales Oxylabs en SSM Parameters.');
+    } else {
+      log('\n❌ DIAGNÓSTICO: Ambas conexiones fallan. Problema de red o DNS.', 'error');
+      log('   RECOMENDACIÓN: Verificar NAT Gateway y Security Groups.');
+    }
+
+    return {
+      dns: dnsResult,
+      direct: directResult,
+      proxy: proxyResult,
+      env: envVars
+    };
+
+  } catch (error) {
+    log(`❌ Error ejecutando pruebas: ${error.message}`, 'error');
+    throw error;
+  }
+}
+
+// Ejecutar si es llamado directamente
+if (require.main === module) {
+  runConnectivityTests()
+    .then(() => {
+      log('\n✅ Pruebas de conectividad completadas');
+      process.exit(0);
+    })
+    .catch((error) => {
+      log(`❌ Error en pruebas: ${error.message}`, 'error');
+      process.exit(1);
+    });
+}
+
+module.exports = { runConnectivityTests };
