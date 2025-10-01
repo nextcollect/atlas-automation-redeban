@@ -152,12 +152,12 @@ async function waitWithMessage(ms, message = null) {
 async function checkNetworkConnectivity(browser, siteUrl) {
   log('Verificando conectividad de red a Redeban...', 'step');
 
-  // Primero intentar sin proxy
+  // Primero intentar sin proxy (para diagnóstico)
   try {
     log('Probando conexión directa (sin proxy)...', 'info');
     const contextDirect = await browser.newContext({
       ignoreHTTPSErrors: true,
-      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       locale: 'es-CO',
       timezoneId: 'America/Bogota'
     });
@@ -180,23 +180,23 @@ async function checkNetworkConnectivity(browser, siteUrl) {
       log('✅ Conexión directa exitosa - no se requiere proxy', 'success');
       return { useProxy: false, statusCode, title };
     } else if (statusCode === 403) {
-      log(`⚠️ Conexión directa bloqueada (403) - se requiere proxy`, 'warning');
+      log(`⚠️ Conexión directa bloqueada (403) - se requiere proxy Colombia`, 'warning');
       return { useProxy: true, statusCode, title };
     } else {
-      log(`⚠️ Conexión directa con problemas (${statusCode}) - intentando con proxy`, 'warning');
+      log(`⚠️ Conexión directa con problemas (${statusCode}) - se requiere proxy Colombia`, 'warning');
       return { useProxy: true, statusCode, title };
     }
 
   } catch (error) {
     log(`❌ Conexión directa falló: ${error.message}`, 'error');
 
-    // Verificar tipo de error
+    // Como estás en Venezuela y Redeban requiere IP de Colombia, SIEMPRE usar proxy
     const errorInfo = parsePlaywrightError(error);
     if (errorInfo.type === 'network' || errorInfo.type === 'timeout') {
-      log('Se requiere proxy para acceso a Redeban', 'warning');
+      log('🇨🇴 Se requiere proxy Colombia para acceso a Redeban desde Venezuela', 'warning');
       return { useProxy: true, error: errorInfo.message };
     } else {
-      log('Error desconocido, intentando con proxy', 'warning');
+      log('🇨🇴 Error desconocido, usando proxy Colombia obligatorio', 'warning');
       return { useProxy: true, error: errorInfo.message };
     }
   }
@@ -234,18 +234,45 @@ async function createOptimalBrowserContext(browser, config, connectivityResult =
   };
 
   if (connectivityResult.useProxy) {
-    log('Configurando contexto con proxy Oxylabs...', 'info');
-    return await browser.newContext({
+    log('🇨🇴 Configurando contexto con proxy Oxylabs Colombia...', 'info');
+    log(`Proxy: ${config.proxyHost}:${config.proxyPort}`, 'info');
+    log(`Usuario: ${config.proxyUsername.substring(0, 30)}...`, 'info');
+
+    const proxyConfig = {
       ...baseConfig,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      extraHTTPHeaders: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'es-CO,es;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
+      },
       proxy: {
         server: `http://${config.proxyHost}:${config.proxyPort}`,
         username: config.proxyUsername,
         password: config.proxyPassword
       }
-    });
+    };
+
+    return await browser.newContext(proxyConfig);
   } else {
-    log('Configurando contexto directo (sin proxy)...', 'info');
-    return await browser.newContext(baseConfig);
+    log('Configurando contexto directo con configuración especial...', 'info');
+
+    // Usar configuración especial basada en las pruebas de conectividad
+    const specialConfig = {
+      ...baseConfig,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      extraHTTPHeaders: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'es-CO,es;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
+      }
+    };
+
+    return await browser.newContext(specialConfig);
   }
 }
 

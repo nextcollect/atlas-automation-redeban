@@ -71,9 +71,9 @@ async function testDirectConnection() {
   });
 }
 
-// Test 2: Conectividad vía proxy
+// Test 2: Conectividad vía proxy Node.js
 async function testProxyConnection() {
-  log('\n=== PRUEBA 2: Conectividad vía Proxy Oxylabs ===');
+  log('\n=== PRUEBA 2: Conectividad vía Proxy Oxylabs (Node.js) ===');
 
   return new Promise((resolve) => {
     const url = new URL(REDEBAN_URL);
@@ -90,7 +90,7 @@ async function testProxyConnection() {
       path: `${url.hostname}:443`,
       headers: {
         'Proxy-Authorization': `Basic ${auth}`,
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       },
       timeout: 20000
     };
@@ -107,7 +107,7 @@ async function testProxyConnection() {
         method: 'GET',
         headers: {
           'Host': url.hostname,
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
       };
 
@@ -152,6 +152,62 @@ async function testProxyConnection() {
 
     proxyReq.end();
   });
+}
+
+// Test 2B: Conectividad vía proxy con Playwright
+async function testPlaywrightProxyConnection() {
+  log('\n=== PRUEBA 2B: Conectividad vía Proxy Oxylabs (Playwright) ===');
+
+  const { chromium } = require('playwright');
+
+  try {
+    const browser = await chromium.launch({ headless: true });
+    const startTime = Date.now();
+
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: true,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      locale: 'es-CO',
+      timezoneId: 'America/Bogota',
+      extraHTTPHeaders: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'es-CO,es;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
+      },
+      proxy: {
+        server: `http://${config.proxyHost}:${config.proxyPort}`,
+        username: config.proxyUsername,
+        password: config.proxyPassword
+      }
+    });
+
+    const page = await context.newPage();
+
+    const response = await page.goto(REDEBAN_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000
+    });
+
+    const responseTime = Date.now() - startTime;
+    const statusCode = response.status();
+    const title = await page.title();
+    const hasRedebanContent = title.includes('Pagos Recurrentes') || title.includes('redeban');
+
+    log(`✅ Playwright con proxy exitoso`, 'success');
+    log(`   Status: ${statusCode}`);
+    log(`   Título: ${title}`);
+    log(`   Tiempo de respuesta: ${responseTime}ms`);
+    log(`   Contenido Redeban detectado: ${hasRedebanContent ? 'SÍ' : 'NO'}`);
+
+    await browser.close();
+    return { success: true, statusCode, responseTime, hasRedebanContent, title };
+
+  } catch (error) {
+    log(`❌ Error en Playwright con proxy: ${error.message}`, 'error');
+    return { success: false, error: error.message };
+  }
 }
 
 // Test 3: Resolución DNS
@@ -210,34 +266,40 @@ async function runConnectivityTests() {
     // Test conexión directa
     const directResult = await testDirectConnection();
 
-    // Test conexión vía proxy
+    // Test conexión vía proxy Node.js
     const proxyResult = await testProxyConnection();
+
+    // Test conexión vía proxy Playwright
+    const playwrightProxyResult = await testPlaywrightProxyConnection();
 
     // Resumen
     log('\n=== RESUMEN DE RESULTADOS ===');
     log(`DNS Resolution: ${dnsResult.success ? '✅ OK' : '❌ FAIL'}`);
     log(`Conexión Directa: ${directResult.success ? '✅ OK' : '❌ FAIL'}`);
-    log(`Conexión vía Proxy: ${proxyResult.success ? '✅ OK' : '❌ FAIL'}`);
+    log(`Proxy Node.js: ${proxyResult.success ? '✅ OK' : '❌ FAIL'}`);
+    log(`Proxy Playwright: ${playwrightProxyResult.success ? '✅ OK' : '❌ FAIL'}`);
 
-    // Diagnóstico
-    if (directResult.success && proxyResult.success) {
-      log('\n🎉 DIAGNÓSTICO: Ambas conexiones funcionan. El problema está en Playwright o timing.', 'success');
-      log('   RECOMENDACIÓN: Aumentar timeouts en Playwright o revisar user-agent.');
-    } else if (!directResult.success && proxyResult.success) {
-      log('\n✅ DIAGNÓSTICO: Solo el proxy funciona. Esto es lo esperado en subnets privadas.', 'success');
-      log('   RECOMENDACIÓN: Forzar uso de proxy desde el inicio en checkNetworkConnectivity().');
-    } else if (directResult.success && !proxyResult.success) {
-      log('\n⚠️ DIAGNÓSTICO: Solo conexión directa funciona. Credenciales de proxy pueden estar expiradas.', 'error');
-      log('   RECOMENDACIÓN: Verificar credenciales Oxylabs en SSM Parameters.');
-    } else {
-      log('\n❌ DIAGNÓSTICO: Ambas conexiones fallan. Problema de red o DNS.', 'error');
-      log('   RECOMENDACIÓN: Verificar NAT Gateway y Security Groups.');
+    // Diagnóstico específico para Colombia/Venezuela
+    if (playwrightProxyResult.success) {
+      log('\n🇨🇴 DIAGNÓSTICO: Playwright con proxy Colombia funciona perfectamente!', 'success');
+      log('   El problema de Redeban debería estar resuelto.');
+    } else if (proxyResult.success && !playwrightProxyResult.success) {
+      log('\n🔍 DIAGNÓSTICO: Proxy funciona en Node.js pero falla en Playwright.', 'error');
+      log(`   Error Playwright: ${playwrightProxyResult.error}`);
+      log('   REVISAR: Configuración de proxy en createOptimalBrowserContext()');
+    } else if (!proxyResult.success) {
+      log('\n❌ DIAGNÓSTICO: Proxy Oxylabs no responde.', 'error');
+      log('   VERIFICAR: Credenciales en SSM Parameters o estado del servicio Oxylabs');
+    } else if (directResult.success) {
+      log('\n🇻🇪 DIAGNÓSTICO: Conexión directa funciona (ubicación Venezuela detectada).', 'success');
+      log('   Para Redeban Colombia, debe usar proxy obligatoriamente.');
     }
 
     return {
       dns: dnsResult,
       direct: directResult,
       proxy: proxyResult,
+      playwrightProxy: playwrightProxyResult,
       env: envVars
     };
 

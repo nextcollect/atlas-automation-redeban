@@ -697,8 +697,9 @@ async function login(page, siteUrl, username, password, bucket, processUUID) {
     log('Iniciando proceso de login...', 'step');
     log(`Navegando a: ${siteUrl}`);
 
-    // Navegar a la página de login
-    await page.goto(siteUrl, {waitUntil: 'networkidle', timeout: 30000});
+    // Navegar a la página de login (debe usar proxy Colombia)
+    log('🇨🇴 Navegando con proxy Colombia...', 'info');
+    await page.goto(siteUrl, {waitUntil: 'domcontentloaded', timeout: 45000});
     await page.waitForLoadState('networkidle');
     await takeScreenshot(page, 'login-page', bucket, processUUID);
 
