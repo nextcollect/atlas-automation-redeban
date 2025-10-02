@@ -351,6 +351,31 @@ async function createProxyContext(browser, config) {
   log(`🔗 Conectando a Oxylabs: https://pr.oxylabs.io:443`, 'info');
   log(`👤 Usuario: ${credentials.username.substring(0, 30)}...`, 'info');
 
+  // Test de verificación de Oxylabs antes de proceder
+  log('🔍 Verificando conectividad Oxylabs...', 'info');
+  try {
+    const testContext = await browser.newContext({
+      proxy: {
+        server: 'https://pr.oxylabs.io:443',
+        username: credentials.username,
+        password: credentials.password
+      }
+    });
+
+    const testPage = await testContext.newPage();
+    await testPage.goto('https://ip.oxylabs.io/location', { timeout: 30000 });
+    const proxyTest = await testPage.textContent('body');
+    const proxyData = JSON.parse(proxyTest);
+
+    log(`✅ Proxy funcionando - IP: ${proxyData.ip}`, 'success');
+    log(`🌍 Ubicación proxy: ${proxyData.providers?.dbip?.country} - ${proxyData.providers?.dbip?.city}`, 'info');
+
+    await testContext.close();
+  } catch (error) {
+    log(`❌ Proxy Oxylabs falló: ${error.message}`, 'error');
+    throw new Error(`Oxylabs no accesible: ${error.message}`);
+  }
+
   const proxyConfig = {
     ignoreHTTPSErrors: true,
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
