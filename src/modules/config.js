@@ -32,66 +32,47 @@ const config = {
   siteUrl: process.env.SITE_URL || 'https://pagosrecurrentes.redebandigital.com/pages/authentication/login-v1',
   username: process.env.SITE_USERNAME || 'lguio@unicef.org',
   password: process.env.SITE_PASSWORD || 'Unicef.20250629*',
-  proxyHost: process.env.PROXY_HOST || 'pr.oxylabs.io',
-  proxyPort: process.env.PROXY_PORT || '7777',
-  proxyUsername: process.env.PROXY_USERNAME || 'customer-sroma29_uP9v3-cc-co-city-bucaramanga-sessid-0292027377-sesstime-6',
-  proxyPassword: process.env.PROXY_PASSWORD || '728hv_b8XjfCr',
+  // Proxy settings (only for local development in restricted regions)
+  useProxy: process.env.USE_PROXY === 'true',
+  proxyHost: process.env.PROXY_HOST,
+  proxyPort: process.env.PROXY_PORT,
+  proxyUsername: process.env.PROXY_USERNAME,
+  proxyPassword: process.env.PROXY_PASSWORD,
   s3BucketInput: process.env.S3_BUCKET_INPUT,
   s3KeyInput: process.env.S3_KEY_INPUT,
   s3BucketEvidence: process.env.S3_BUCKET_EVIDENCE,
   s3KeyPrefix: process.env.S3_KEY_PREFIX,
-  // Puppeteer configuration for better AWS Fargate compatibility
+  // Puppeteer configuration optimized for AWS Fargate direct connectivity
   puppeteerOptions: {
     headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable',
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || (process.env.NODE_ENV === 'production' ? '/usr/bin/google-chrome-stable' : undefined),
     args: [
+      // Essential security flags for containerized environments
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
+
+      // Core performance flags
       '--disable-gpu',
-      '--disable-software-rasterizer',
-      '--ignore-certificate-errors',
-      '--ignore-certificate-errors-spki-list',
-      '--ignore-ssl-errors',
-      '--disable-web-security',
-      '--disable-features=VizDisplayCompositor',
-      '--disable-background-networking',
-      '--disable-background-timer-throttling',
-      '--disable-renderer-backgrounding',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-client-side-phishing-detection',
-      '--disable-default-apps',
-      '--disable-hang-monitor',
-      '--disable-popup-blocking',
-      '--disable-prompt-on-repost',
-      '--disable-sync',
-      '--disable-translate',
-      '--disable-windows10-custom-titlebar',
-      '--metrics-recording-only',
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--password-store=basic',
-      '--use-mock-keychain',
-      '--disable-component-extensions-with-background-pages',
-      '--disable-extensions',
-      '--disable-blink-features=AutomationControlled',
-      '--disable-ipc-flooding-protection',
-      // AWS Fargate optimized flags for Puppeteer
       '--single-process',
       '--no-zygote',
-      '--disable-features=TranslateUI',
-      '--disable-accelerated-2d-canvas',
-      '--disable-accelerated-jpeg-decoding',
-      '--disable-accelerated-mjpeg-decode',
-      '--disable-accelerated-video-decode',
-      '--disable-accelerated-video-encode',
-      '--disable-app-list-dismiss-on-blur',
-      '--disable-audio-output',
+
+      // Network and security
+      '--ignore-certificate-errors',
+      '--ignore-ssl-errors',
+      '--disable-web-security',
+
+      // Memory optimization for Fargate
       '--memory-pressure-off',
       '--max_old_space_size=4096',
-      '--remote-debugging-port=9222'
+
+      // Anti-detection (minimal set)
+      '--disable-blink-features=AutomationControlled',
+      '--disable-extensions',
+      '--no-first-run',
+      '--disable-default-apps'
     ],
-    timeout: 60000,
+    timeout: 45000,
     ignoreDefaultArgs: ['--enable-automation']
   },
   // Keep Playwright as fallback

@@ -63,5 +63,5 @@ RUN groupadd -r automation && useradd -r -g automation -G audio,video automation
 # Switch to non-root user
 USER automation
 
-# Command to run the automation (can switch between engines)
-CMD ["node", "src/redeban-puppeteer.js"]
+# Command to run the automation (simplified version)
+CMD ["node", "src/redeban-simple.js"]
