@@ -1,9 +1,9 @@
 /**
- * Final Solution: Network Diagnostics + Anti-Detection Automation
- * Combines comprehensive network testing with advanced anti-detection
+ * Final Clean Solution: Network Diagnostics + Anti-Detection Automation
+ * Combines comprehensive network testing with dual-approach Chrome testing
  *
  * @author Atlas Automation Team
- * @version 4.0.0
+ * @version 4.1.0
  */
 
 const https = require('https');
@@ -28,29 +28,9 @@ async function runNetworkDiagnostics() {
   log(`  AWS Region: ${process.env.AWS_REGION}`, 'info');
   log(`  Environment: ${process.env.NODE_ENV}`, 'info');
 
-  // Network interfaces
-  try {
-    const os = require('os');
-    const interfaces = os.networkInterfaces();
-    log('🌐 Network Interfaces:', 'info');
-    Object.keys(interfaces).forEach(name => {
-      interfaces[name].forEach(iface => {
-        if (!iface.internal) {
-          log(`  ${name}: ${iface.address} (${iface.family})`, 'info');
-        }
-      });
-    });
-  } catch (error) {
-    log(`⚠️ Cannot read network interfaces: ${error.message}`, 'warning');
-  }
-
   // DNS tests
   log('🌐 DNS Resolution Tests:', 'step');
-  const dnsTests = [
-    'pagosrecurrentes.redebandigital.com',
-    'redebandigital.com',
-    'google.com'
-  ];
+  const dnsTests = ['pagosrecurrentes.redebandigital.com', 'google.com'];
 
   for (const hostname of dnsTests) {
     try {
@@ -67,45 +47,30 @@ async function runNetworkDiagnostics() {
   const testSites = [
     'https://google.com',
     'https://github.com',
-    'https://amazon.com',
     'https://s3.amazonaws.com',
-    'https://s3.us-east-1.amazonaws.com',
-    'https://logs.us-east-1.amazonaws.com',
-    'https://redebandigital.com',
     'https://pagosrecurrentes.redebandigital.com',
     'https://pagosrecurrentes.redebandigital.com/pages/authentication/login-v1'
   ];
 
   const results = {};
-
   for (const url of testSites) {
     try {
       const result = await testConnection(url);
       results[url] = result;
       log(`${result.success ? '✅' : '❌'} ${url}: ${result.statusCode || result.error}`,
           result.success ? 'success' : 'error');
-
-      if (result.success && result.server) {
-        log(`  Server: ${result.server}`, 'info');
-      }
     } catch (error) {
       results[url] = { success: false, error: error.message };
       log(`❌ ${url}: ${error.message}`, 'error');
     }
   }
 
-  // Summary
-  const workingSites = Object.entries(results).filter(([url, result]) => result.success);
-  const failingSites = Object.entries(results).filter(([url, result]) => !result.success);
-
-  log(`📊 Network Summary: ${workingSites.length} working, ${failingSites.length} failing`, 'info');
+  const workingSites = Object.entries(results).filter(([, result]) => result.success);
+  log(`📊 Network Summary: ${workingSites.length}/${testSites.length} sites working`, 'info');
 
   return results;
 }
 
-/**
- * Test DNS resolution
- */
 function testDNS(hostname) {
   return new Promise((resolve) => {
     dns.lookup(hostname, (err, address, family) => {
@@ -124,7 +89,7 @@ function testConnection(url) {
     const options = {
       hostname: urlObj.hostname,
       port: 443,
-      path: '/',
+      path: urlObj.pathname,
       method: 'GET',
       timeout: 8000,
       headers: { 'User-Agent': 'Atlas-Test/1.0' }
@@ -148,149 +113,133 @@ function testConnection(url) {
 }
 
 /**
- * Phase 2: Anti-Detection Chrome with Maximum Stealth
+ * Phase 2: Dual Chrome Testing (Simple first, then Stealth)
  */
-async function runAntiDetectionAutomation(processUUID) {
-  log('🥷 Phase 2: Anti-Detection Automation', 'step');
+async function runDualChromeTest(processUUID) {
+  log('🥷 Phase 2: Dual Chrome Testing', 'step');
 
-  const tempDir = '/tmp/chrome-stealth';
-  const screenshotStart = '/tmp/stealth-start.png';
-  const screenshotLogin = '/tmp/stealth-login.png';
-
-  // Create temp directory
+  const tempDir = '/tmp/chrome-dual';
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
   }
 
-  // Maximum stealth Chrome configuration
-  const stealthArgs = [
-    '--headless=new', // Use new headless mode
+  // Test 1: Simple approach (matching successful HTTP)
+  log('🔧 Test 1: Simple Chrome (matching HTTP success)...', 'info');
+  const simpleArgs = [
+    '--headless',
     '--no-sandbox',
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
     '--disable-gpu',
-    '--disable-software-rasterizer',
+    '--single-process',
+    '--user-data-dir=' + tempDir + '/simple',
+    '--window-size=1366,768',
+    '--timeout=8000',
+    '--user-agent=Atlas-Test/1.0',
+    '--screenshot=/tmp/chrome-simple.png',
+    'https://pagosrecurrentes.redebandigital.com/'
+  ];
 
-    // Anti-detection core
+  const simpleResult = await runChromeTest(simpleArgs, 'simple', processUUID);
+
+  // Test 2: Stealth approach (ALWAYS run both for comparison)
+  log('🥷 Test 2: Stealth Chrome (anti-detection)...', 'info');
+  const stealthArgs = [
+    '--headless=new',
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--single-process',
+    '--no-zygote',
+    '--user-data-dir=' + tempDir + '/stealth',
+    '--window-size=1920,1080',
+    '--timeout=15000',
     '--disable-blink-features=AutomationControlled',
     '--exclude-switches=enable-automation',
     '--disable-extensions',
-    '--disable-plugins',
-    '--disable-default-apps',
-    '--disable-sync',
-    '--disable-translate',
-    '--disable-background-networking',
-    '--disable-background-timer-throttling',
-    '--disable-renderer-backgrounding',
-    '--disable-backgrounding-occluded-windows',
-    '--disable-client-side-phishing-detection',
-    '--disable-hang-monitor',
-    '--disable-popup-blocking',
-    '--disable-prompt-on-repost',
-    '--disable-features=TranslateUI',
-    '--disable-component-extensions-with-background-pages',
-
-    // Network and SSL
-    '--ignore-certificate-errors',
-    '--ignore-ssl-errors',
-    '--disable-web-security',
-    '--allow-running-insecure-content',
-
-    // Memory and performance
-    '--memory-pressure-off',
-    '--max_old_space_size=4096',
-    '--single-process',
-    '--no-zygote',
-
-    // Realistic browser behavior
-    '--user-data-dir=' + tempDir,
-    '--window-size=1920,1080',
-    '--device-scale-factor=1',
-
-    // Extended timeouts
-    '--timeout=90000',
-    '--navigation-timeout=90000',
-    '--load-timeout=90000',
-
-    // Stealth headers (simulate real browser from Colombia)
     '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    '--accept=text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-    '--accept-language=es-CO,es-419;q=0.9,es;q=0.8,en;q=0.7',
-    '--accept-encoding=gzip, deflate, br',
-
-    // Take screenshot
-    `--screenshot=${screenshotStart}`,
-
-    // Target URL
+    '--screenshot=/tmp/chrome-stealth.png',
     config.siteUrl
   ];
 
-  return new Promise((resolve) => {
-    log('🚀 Launching stealth Chrome...', 'info');
-    log(`📋 Chrome args count: ${stealthArgs.length}`, 'info');
+  const stealthResult = await runChromeTest(stealthArgs, 'stealth', processUUID);
 
-    const chrome = spawn('/usr/bin/google-chrome-stable', stealthArgs, {
-      timeout: 120000, // 2 minutes
+  // Compare results and return the best one
+  log('📊 Comparing both approaches:', 'step');
+  log(`Simple Chrome: ${simpleResult.success ? 'SUCCESS' : 'FAILED'} (${simpleResult.screenshotSize || 0} bytes)`,
+      simpleResult.success ? 'success' : 'error');
+  log(`Stealth Chrome: ${stealthResult.success ? 'SUCCESS' : 'FAILED'} (${stealthResult.screenshotSize || 0} bytes)`,
+      stealthResult.success ? 'success' : 'error');
+
+  // Return the successful one, or the one with larger screenshot if both fail
+  if (simpleResult.success) {
+    log('✅ Using Simple Chrome approach (matched HTTP success)', 'success');
+    return simpleResult;
+  } else if (stealthResult.success) {
+    log('✅ Using Stealth Chrome approach (anti-detection worked)', 'success');
+    return stealthResult;
+  } else {
+    // Both failed, return the one with larger screenshot
+    const betterResult = (simpleResult.screenshotSize || 0) > (stealthResult.screenshotSize || 0) ?
+      simpleResult : stealthResult;
+    log(`❌ Both approaches failed, using ${betterResult.method} (larger screenshot)`, 'warning');
+    return betterResult;
+  }
+}
+
+async function runChromeTest(chromeArgs, testName, processUUID) {
+  return new Promise((resolve) => {
+    log(`🚀 Launching Chrome (${testName})...`, 'info');
+
+    const chrome = spawn('/usr/bin/google-chrome-stable', chromeArgs, {
+      timeout: testName === 'simple' ? 15000 : 30000,
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
-    let stdout = '';
     let stderr = '';
-
-    chrome.stdout.on('data', (data) => {
-      stdout += data.toString();
-    });
-
     chrome.stderr.on('data', (data) => {
       stderr += data.toString();
     });
 
     chrome.on('close', async (code) => {
-      log(`📄 Chrome exit code: ${code}`, code === 0 ? 'success' : 'error');
+      log(`📄 Chrome (${testName}) exit code: ${code}`, code === 0 ? 'success' : 'error');
 
-      if (stderr) {
-        log(`📥 Chrome stderr: ${stderr.substring(0, 500)}...`, 'warning');
+      if (stderr && stderr.length > 0) {
+        log(`📥 Chrome stderr: ${stderr.substring(0, 200)}...`, 'warning');
       }
 
-      const screenshotExists = fs.existsSync(screenshotStart);
-      log(`📸 Screenshot created: ${screenshotExists}`, screenshotExists ? 'success' : 'error');
+      const screenshotPath = `/tmp/chrome-${testName}.png`;
+      const screenshotExists = fs.existsSync(screenshotPath);
+
+      log(`📸 Screenshot (${testName}) created: ${screenshotExists}`, screenshotExists ? 'success' : 'error');
 
       if (screenshotExists) {
-        const stats = fs.statSync(screenshotStart);
+        const stats = fs.statSync(screenshotPath);
         log(`📦 Screenshot size: ${stats.size} bytes`, 'info');
 
-        // Upload screenshot
+        // Upload to S3
         try {
           const bucket = config.s3BucketEvidence || 'atlas-dev-us-east-1-s3-automation-evidence-redeban';
-          await uploadScreenshotToS3(screenshotStart, 'stealth-chrome-test.png', bucket, processUUID);
-          log('✅ Screenshot uploaded to S3', 'success');
+          await uploadScreenshotToS3(screenshotPath, `chrome-${testName}-test.png`, bucket, processUUID);
+          log(`✅ Screenshot (${testName}) uploaded to S3`, 'success');
         } catch (uploadError) {
           log(`⚠️ Screenshot upload failed: ${uploadError.message}`, 'warning');
         }
 
-        // Analyze screenshot content (basic check)
-        if (stats.size > 50000) { // Reasonable size suggests real content
-          log('✅ Screenshot size suggests page loaded successfully', 'success');
-          resolve({
-            success: true,
-            method: 'stealth-chrome',
-            screenshotSize: stats.size,
-            exitCode: code
-          });
-        } else {
-          log('⚠️ Screenshot too small - may be error page', 'warning');
-          resolve({
-            success: false,
-            method: 'stealth-chrome',
-            error: 'Small screenshot suggests error page',
-            screenshotSize: stats.size,
-            exitCode: code
-          });
-        }
+        // Determine success based on screenshot size
+        const isSuccess = stats.size > 15000; // Reasonable size for real content
+        resolve({
+          success: isSuccess,
+          method: `chrome-${testName}`,
+          screenshotSize: stats.size,
+          exitCode: code,
+          message: isSuccess ? 'Screenshot suggests page loaded' : 'Screenshot too small - likely error page'
+        });
       } else {
         resolve({
           success: false,
-          method: 'stealth-chrome',
+          method: `chrome-${testName}`,
           error: 'No screenshot created',
           exitCode: code
         });
@@ -298,10 +247,10 @@ async function runAntiDetectionAutomation(processUUID) {
     });
 
     chrome.on('error', (error) => {
-      log(`❌ Chrome spawn error: ${error.message}`, 'error');
+      log(`❌ Chrome (${testName}) error: ${error.message}`, 'error');
       resolve({
         success: false,
-        method: 'stealth-chrome',
+        method: `chrome-${testName}`,
         error: error.message
       });
     });
@@ -309,35 +258,11 @@ async function runAntiDetectionAutomation(processUUID) {
     // Safety timeout
     setTimeout(() => {
       if (!chrome.killed) {
-        log('⏰ Chrome timeout - killing process', 'warning');
+        log(`⏰ Chrome (${testName}) timeout - terminating`, 'warning');
         chrome.kill('SIGTERM');
       }
-    }, 120000);
+    }, testName === 'simple' ? 15000 : 30000);
   });
-}
-
-/**
- * Phase 3: Advanced Form Automation (if stealth works)
- */
-async function attemptFormAutomation(processUUID) {
-  log('📝 Phase 3: Form Automation Attempt', 'step');
-
-  // If we get here, it means stealth Chrome worked
-  // We can implement actual form filling using JavaScript injection
-  // or Chrome DevTools Protocol
-
-  log('🔐 Form automation would be implemented here', 'info');
-  log('📋 This would include:', 'info');
-  log('   - Login form detection', 'info');
-  log('   - Credential filling', 'info');
-  log('   - Form submission', 'info');
-  log('   - Success verification', 'info');
-
-  return {
-    success: true,
-    message: 'Form automation ready for implementation',
-    method: 'stealth-chrome-forms'
-  };
 }
 
 /**
@@ -350,59 +275,43 @@ async function runComprehensiveSolution() {
   try {
     log('🚀 Starting Comprehensive Redeban Solution', 'step');
     log(`📋 Process UUID: ${processUUID}`, 'info');
-    log(`⏰ Start time: ${startTime.toISOString()}`, 'info');
 
     // Write initial metadata
     await writeMetadataToS3('started', {
       siteUrl: config.siteUrl,
       username: config.username,
       startTime: startTime.toISOString(),
-      approach: 'comprehensive-diagnostics-and-stealth'
+      approach: 'comprehensive-dual-chrome'
     }, processUUID);
 
-    // Phase 1: Network Diagnostics
+    // Phase 1: Network diagnostics
     const networkResults = await runNetworkDiagnostics();
 
-    const workingSites = Object.entries(networkResults).filter(([url, result]) => result.success);
-    const failingSites = Object.entries(networkResults).filter(([url, result]) => !result.success);
-
-    log(`📊 Network Summary: ${workingSites.length} working, ${failingSites.length} failing`, 'info');
-
-    // Phase 2: Anti-Detection Automation
-    const automationResult = await runAntiDetectionAutomation(processUUID);
-
-    // Phase 3: Form automation if stealth worked
-    let formResult = null;
-    if (automationResult.success) {
-      formResult = await attemptFormAutomation(processUUID);
-    }
+    // Phase 2: Dual Chrome testing
+    const chromeResult = await runDualChromeTest(processUUID);
 
     // Final assessment
-    const overallSuccess = automationResult.success;
+    const overallSuccess = chromeResult.success;
 
     if (overallSuccess) {
       log('🎉 Comprehensive solution completed successfully!', 'success');
+      log(`✅ Working method: ${chromeResult.method}`, 'success');
     } else {
-      log('❌ Stealth automation failed - need further investigation', 'error');
+      log('❌ All Chrome approaches failed', 'error');
+      log(`📋 Last attempt: ${chromeResult.method} - ${chromeResult.error || chromeResult.message}`, 'info');
     }
 
     // Write final metadata
     await writeMetadataToS3('completed', {
       endTime: new Date().toISOString(),
       duration: new Date() - startTime,
-      status: overallSuccess ? 'success' : 'partial-success',
+      status: overallSuccess ? 'success' : 'failed',
       networkResults,
-      automationResult,
-      formResult,
-      approach: 'comprehensive-diagnostics-and-stealth'
+      chromeResult,
+      approach: 'comprehensive-dual-chrome'
     }, processUUID);
 
-    return {
-      success: overallSuccess,
-      networkResults,
-      automationResult,
-      formResult
-    };
+    return { success: overallSuccess, networkResults, chromeResult };
 
   } catch (error) {
     log(`❌ Comprehensive solution error: ${error.message}`, 'error');
@@ -410,8 +319,7 @@ async function runComprehensiveSolution() {
     await writeMetadataToS3('failed', {
       endTime: new Date().toISOString(),
       error: error.message,
-      status: 'failed',
-      approach: 'comprehensive-diagnostics-and-stealth'
+      status: 'failed'
     }, processUUID);
 
     throw error;
@@ -429,5 +337,5 @@ if (require.main === module) {
 module.exports = {
   runComprehensiveSolution,
   runNetworkDiagnostics,
-  runAntiDetectionAutomation
+  runDualChromeTest
 };
