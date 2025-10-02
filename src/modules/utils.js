@@ -348,7 +348,7 @@ async function createProxyContext(browser, config) {
 
   const credentials = await loadOxylabsCredentials();
 
-  log(`🔗 Conectando a Oxylabs: pr.oxylabs.io:7777`, 'info');
+  log(`🔗 Conectando a Oxylabs: https://pr.oxylabs.io:443`, 'info');
   log(`👤 Usuario: ${credentials.username.substring(0, 30)}...`, 'info');
 
   const proxyConfig = {
@@ -368,7 +368,7 @@ async function createProxyContext(browser, config) {
       'sec-ch-ua-platform': '"Windows"'
     },
     proxy: {
-      server: 'http://pr.oxylabs.io:7777',
+      server: 'https://pr.oxylabs.io:443',
       username: credentials.username,
       password: credentials.password
     }
