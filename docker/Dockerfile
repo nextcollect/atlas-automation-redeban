@@ -1,40 +1,11 @@
-# Use Node.js with Chrome for better Puppeteer compatibility in Fargate
-FROM node:18-slim
+# Use official Playwright image with pre-installed browsers
+FROM mcr.microsoft.com/playwright:v1.52.0-jammy
 
 WORKDIR /usr/src/app
 
-# Install dependencies for Puppeteer and Chrome + curl for testing
+# Install curl for testing
 RUN apt-get update && apt-get install -y \
-    wget \
     curl \
-    gnupg \
-    ca-certificates \
-    procps \
-    libxss1 \
-    libgconf-2-4 \
-    libxkbcommon0 \
-    libxrandr2 \
-    libasound2 \
-    libpangocairo-1.0-0 \
-    libatk1.0-0 \
-    libcairo-gobject2 \
-    libgtk-3-0 \
-    libgdk-pixbuf2.0-0 \
-    libxcomposite1 \
-    libxcursor1 \
-    libxdamage1 \
-    libxext6 \
-    libxfixes3 \
-    libxi6 \
-    libxrender1 \
-    libxtst6 \
-    libglib2.0-0 \
-    libnss3 \
-    libxss1 \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -44,30 +15,18 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Install Playwright browsers with dependencies (as root before switching user)
-RUN npx playwright install --with-deps chromium
-
 # Copy source code
 COPY . .
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
-ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+# Install Playwright browsers (already optimized in this image)
+RUN npx playwright install --with-deps
 
 # Add version file
 RUN echo "{\"version\": \"$(date +%Y%m%d%H%M%S)\", \"buildDate\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > version.json
-
-# Create a non-root user for security
-RUN groupadd -r automation && useradd -r -g automation -G audio,video automation \
-    && mkdir -p /home/automation/Downloads \
-    && chown -R automation:automation /home/automation \
-    && chown -R automation:automation /usr/src/app \
-    && chown -R automation:automation /root/.cache/ms-playwright 2>/dev/null || true
-
-# Switch to non-root user
-USER automation
 
 # Start the automation
 CMD ["node", "src/redeban.js"]

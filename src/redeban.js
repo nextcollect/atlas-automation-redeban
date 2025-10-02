@@ -82,7 +82,7 @@ async function uploadFile() {
   }, processUUID);
 
   // Lanzar navegador con configuración anti-detección máxima (post-subnet-change)
-  log('🔧 Lanzando navegador con configuración anti-detección avanzada...', 'info');
+  log('🔧 Lanzando navegador con Playwright Chromium...', 'info');
   const browser = await chromium.launch({
     ...config.browserOptions,
     // Configuración anti-detección mejorada para bypass de nuevas políticas
