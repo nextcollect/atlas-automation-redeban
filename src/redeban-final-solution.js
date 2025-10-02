@@ -134,7 +134,7 @@ async function runDualChromeTest(processUUID) {
     '--single-process',
     '--user-data-dir=' + tempDir + '/simple',
     '--window-size=1366,768',
-    '--timeout=8000',
+    '--timeout=60000',  // 1 minute timeout
     '--user-agent=Atlas-Test/1.0',
     '--screenshot=/tmp/chrome-simple.png',
     'https://pagosrecurrentes.redebandigital.com/'
@@ -154,7 +154,7 @@ async function runDualChromeTest(processUUID) {
     '--no-zygote',
     '--user-data-dir=' + tempDir + '/stealth',
     '--window-size=1920,1080',
-    '--timeout=15000',
+    '--timeout=60000',  // 1 minute timeout
     '--disable-blink-features=AutomationControlled',
     '--exclude-switches=enable-automation',
     '--disable-extensions',
@@ -193,7 +193,7 @@ async function runChromeTest(chromeArgs, testName, processUUID) {
     log(`🚀 Launching Chrome (${testName})...`, 'info');
 
     const chrome = spawn('/usr/bin/google-chrome-stable', chromeArgs, {
-      timeout: testName === 'simple' ? 15000 : 30000,
+      timeout: 90000,  // 1.5 minutes for both tests
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
@@ -261,7 +261,7 @@ async function runChromeTest(chromeArgs, testName, processUUID) {
         log(`⏰ Chrome (${testName}) timeout - terminating`, 'warning');
         chrome.kill('SIGTERM');
       }
-    }, testName === 'simple' ? 15000 : 30000);
+    }, 90000);  // 1.5 minutes safety timeout
   });
 }
 
