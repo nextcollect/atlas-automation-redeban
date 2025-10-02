@@ -3,9 +3,10 @@ FROM node:18-slim
 
 WORKDIR /usr/src/app
 
-# Install dependencies for Puppeteer and Chrome
+# Install dependencies for Puppeteer and Chrome + curl for testing
 RUN apt-get update && apt-get install -y \
     wget \
+    curl \
     gnupg \
     ca-certificates \
     procps \
