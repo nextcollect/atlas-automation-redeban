@@ -32,12 +32,12 @@ const config = {
   siteUrl: process.env.SITE_URL || 'https://pagosrecurrentes.redebandigital.com/pages/authentication/login-v1',
   username: process.env.SITE_USERNAME || 'lguio@unicef.org',
   password: process.env.SITE_PASSWORD || 'Unicef.20250629*',
-  // Proxy settings (only for local development in restricted regions)
-  useProxy: process.env.USE_PROXY === 'true',
-  proxyHost: process.env.PROXY_HOST,
-  proxyPort: process.env.PROXY_PORT,
-  proxyUsername: process.env.PROXY_USERNAME,
-  proxyPassword: process.env.PROXY_PASSWORD,
+  // Proxy settings - Oxylabs residential proxy for IP bypass
+  useProxy: process.env.USE_PROXY === 'true' || true, // Force proxy usage to bypass IP blocking
+  proxyHost: process.env.PROXY_HOST || 'pr.oxylabs.io',
+  proxyPort: process.env.PROXY_PORT || '7777',
+  proxyUsername: process.env.PROXY_USERNAME, // From SSM: /atlas/redeban/proxy-username
+  proxyPassword: process.env.PROXY_PASSWORD, // From SSM: /atlas/redeban/proxy-password
   s3BucketInput: process.env.S3_BUCKET_INPUT,
   s3KeyInput: process.env.S3_KEY_INPUT,
   s3BucketEvidence: process.env.S3_BUCKET_EVIDENCE,

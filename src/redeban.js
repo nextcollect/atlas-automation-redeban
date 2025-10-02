@@ -15,7 +15,7 @@ const {chromium} = require('playwright');
 const config = require('./modules/config');
 const { log } = require('./modules/logger');
 const { login } = require('./modules/navigation');
-const { checkNetworkConnectivity, createOptimalBrowserContext, generateRedebanProcessUUID } = require('./modules/utils');
+const { generateRedebanProcessUUID, createProxyContext } = require('./modules/utils');
 const { uploadScreenshotToS3, downloadInputFileFromS3, writeMetadataToS3 } = require('./modules/s3Service');
 
 /**
@@ -140,12 +140,9 @@ async function uploadFile() {
     }
   });
 
-  // Verificar conectividad automáticamente
-  const connectivityResult = await checkNetworkConnectivity(browser, config.siteUrl);
-  log(`Resultado de conectividad: ${connectivityResult.useProxy ? 'Proxy requerido' : 'Conexión directa'}`, 'info');
-
-  // Crear contexto óptimo basado en conectividad con stealth mejorado
-  const context = await createOptimalBrowserContext(browser, config, connectivityResult);
+  // Usar directamente proxy Oxylabs para bypass de IP bloqueada
+  log('🚫 IP del NAT Gateway bloqueada - usando proxy Oxylabs obligatorio', 'warning');
+  const context = await createProxyContext(browser, config);
   const page = await context.newPage();
 
   // Anti-detección adicional a nivel de página (post-subnet-change)

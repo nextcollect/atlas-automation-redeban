@@ -1,4 +1,5 @@
 const { log } = require('./logger');
+const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
 
 // Función auxiliar para generar UUID v4 real
 function generateUUID() {
@@ -287,6 +288,95 @@ async function createOptimalBrowserContext(browser, config, connectivityResult =
   }
 }
 
+/**
+ * Loads Oxylabs proxy credentials from AWS Systems Manager Parameter Store
+ * Caches credentials to avoid multiple API calls during execution
+ *
+ * @async
+ * @function loadOxylabsCredentials
+ * @returns {Promise<Object>} Object containing username and password
+ * @throws {Error} When SSM parameters cannot be retrieved
+ */
+let oxylabsCredentialsCache = null;
+async function loadOxylabsCredentials() {
+  if (oxylabsCredentialsCache) {
+    return oxylabsCredentialsCache;
+  }
+
+  try {
+    log('🔑 Cargando credenciales Oxylabs desde SSM...', 'info');
+
+    const ssmClient = new SSMClient({ region: process.env.AWS_REGION || 'us-east-1' });
+
+    const [usernameResult, passwordResult] = await Promise.all([
+      ssmClient.send(new GetParameterCommand({
+        Name: '/atlas/redeban/proxy-username',
+        WithDecryption: true
+      })),
+      ssmClient.send(new GetParameterCommand({
+        Name: '/atlas/redeban/proxy-password',
+        WithDecryption: true
+      }))
+    ]);
+
+    oxylabsCredentialsCache = {
+      username: usernameResult.Parameter.Value,
+      password: passwordResult.Parameter.Value
+    };
+
+    log('✅ Credenciales Oxylabs cargadas desde SSM', 'success');
+    return oxylabsCredentialsCache;
+
+  } catch (error) {
+    log(`❌ Error cargando credenciales Oxylabs: ${error.message}`, 'error');
+    throw new Error(`No se pudieron cargar las credenciales de Oxylabs: ${error.message}`);
+  }
+}
+
+/**
+ * Forces proxy usage and creates optimized context for bypassing IP blocking
+ * Specifically configured for Oxylabs residential proxy with sticky sessions
+ *
+ * @async
+ * @function createProxyContext
+ * @param {Browser} browser - Playwright browser instance
+ * @param {Object} config - Configuration object
+ * @returns {Promise<BrowserContext>} Browser context configured with Oxylabs proxy
+ */
+async function createProxyContext(browser, config) {
+  log('🥷 Creando contexto con proxy Oxylabs para bypass de IP...', 'step');
+
+  const credentials = await loadOxylabsCredentials();
+
+  log(`🔗 Conectando a Oxylabs: pr.oxylabs.io:7777`, 'info');
+  log(`👤 Usuario: ${credentials.username.substring(0, 30)}...`, 'info');
+
+  const proxyConfig = {
+    ignoreHTTPSErrors: true,
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    locale: 'es-CO',
+    timezoneId: 'America/Bogota',
+    viewport: { width: 1366, height: 768 },
+    extraHTTPHeaders: {
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'es-CO,es;q=0.9,en;q=0.8',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+      'sec-ch-ua': '"Chromium";v="120", "Google Chrome";v="120", "Not:A-Brand";v="99"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"'
+    },
+    proxy: {
+      server: 'http://pr.oxylabs.io:7777',
+      username: credentials.username,
+      password: credentials.password
+    }
+  };
+
+  return await browser.newContext(proxyConfig);
+}
+
 module.exports = {
   generateUUID,
   generateRedebanProcessUUID,
@@ -303,5 +393,7 @@ module.exports = {
   parsePlaywrightError,
   waitWithMessage,
   checkNetworkConnectivity,
-  createOptimalBrowserContext
+  createOptimalBrowserContext,
+  loadOxylabsCredentials,
+  createProxyContext
 };
