@@ -63,5 +63,5 @@ RUN groupadd -r automation && useradd -r -g automation -G audio,video automation
 # Switch to non-root user
 USER automation
 
-# Command to test proxy first, then run automation
-CMD ["node", "src/test-proxy-nodejs.js"]
+# Command to run comprehensive solution (diagnostics + anti-detection)
+CMD ["node", "src/redeban-final-solution.js"]
