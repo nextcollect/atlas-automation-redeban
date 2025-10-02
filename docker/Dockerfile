@@ -63,5 +63,5 @@ RUN groupadd -r automation && useradd -r -g automation -G audio,video automation
 # Switch to non-root user
 USER automation
 
-# Command to run the automation (simplified version)
-CMD ["node", "src/redeban-simple.js"]
+# Command to run connectivity debug first, then automation
+CMD ["node", "src/debug-connectivity.js"]
