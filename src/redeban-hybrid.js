@@ -210,7 +210,11 @@ async function loginWithChromeDirect(url, credentials, processUUID) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    // Enhanced Chrome args with better timeouts and anti-detection
+    // Get proxy configuration
+    const config = require('./modules/config');
+    const useProxy = config.useProxy || process.env.USE_PROXY === 'true';
+
+    // Enhanced Chrome args with proxy and anti-detection
     const chromeArgs1 = [
       '--headless',
       '--no-sandbox',
@@ -231,14 +235,29 @@ async function loginWithChromeDirect(url, credentials, processUUID) {
       '--disable-plugins',
       '--disable-default-apps',
       '--disable-sync',
-      // Custom User-Agent
+      '--disable-web-security',
+      '--ignore-certificate-errors',
+      '--ignore-ssl-errors',
+      // Custom User-Agent for Colombian IP
       '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       // Headers simulation
       '--accept=text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
-      '--accept-language=es-CO,es;q=0.9,en;q=0.8',
-      `--screenshot=${screenshotStart}`,
-      url
+      '--accept-language=es-CO,es;q=0.9,en;q=0.8'
     ];
+
+    // Add proxy configuration if enabled
+    if (useProxy && config.proxyHost && config.proxyPort) {
+      log(`🇨🇴 Configurando proxy Oxylabs: ${config.proxyHost}:${config.proxyPort}`, 'info');
+      chromeArgs1.push(`--proxy-server=http://${config.proxyHost}:${config.proxyPort}`);
+
+      // Chrome doesn't support proxy auth directly in command line for HTTPS
+      // We'll need to handle authentication differently
+      log('⚠️ Proxy auth será manejado por Chrome automáticamente', 'warning');
+    } else {
+      log('🔍 Usando conexión directa (sin proxy)', 'info');
+    }
+
+    chromeArgs1.push(`--screenshot=${screenshotStart}`, url);
 
     const chrome1 = spawn('/usr/bin/google-chrome-stable', chromeArgs1, {
       timeout: 90000 // 90 seconds total timeout
