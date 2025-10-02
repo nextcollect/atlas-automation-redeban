@@ -43,6 +43,9 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
+# Install Playwright browsers (as root before switching user)
+RUN npx playwright install chromium
+
 # Copy source code
 COPY . .
 
@@ -50,6 +53,7 @@ COPY . .
 ENV NODE_ENV=production
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+ENV PLAYWRIGHT_BROWSERS_PATH=/home/automation/.cache/ms-playwright
 
 # Add version file
 RUN echo "{\"version\": \"$(date +%Y%m%d%H%M%S)\", \"buildDate\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > version.json
@@ -57,8 +61,10 @@ RUN echo "{\"version\": \"$(date +%Y%m%d%H%M%S)\", \"buildDate\": \"$(date -u +"
 # Create a non-root user for security
 RUN groupadd -r automation && useradd -r -g automation -G audio,video automation \
     && mkdir -p /home/automation/Downloads \
+    && mkdir -p /home/automation/.cache/ms-playwright \
     && chown -R automation:automation /home/automation \
-    && chown -R automation:automation /usr/src/app
+    && chown -R automation:automation /usr/src/app \
+    && chown -R automation:automation /root/.cache/ms-playwright 2>/dev/null || true
 
 # Switch to non-root user
 USER automation
