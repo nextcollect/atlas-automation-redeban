@@ -373,7 +373,27 @@ async function createProxyContext(browser, config) {
     await testContext.close();
   } catch (error) {
     log(`❌ Proxy Oxylabs falló: ${error.message}`, 'error');
-    throw new Error(`Oxylabs no accesible: ${error.message}`);
+    log(`⚠️ Fallback: Intentando conexión directa...`, 'warning');
+
+    // Retornar contexto directo como fallback
+    log('🔧 Creando contexto directo con configuración anti-detección máxima', 'info');
+    return await browser.newContext({
+      ignoreHTTPSErrors: true,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      locale: 'es-CO',
+      timezoneId: 'America/Bogota',
+      viewport: { width: 1366, height: 768 },
+      extraHTTPHeaders: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'es-CO,es;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'sec-ch-ua': '"Chromium";v="120", "Google Chrome";v="120", "Not:A-Brand";v="99"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"'
+      }
+    });
   }
 
   const proxyConfig = {
