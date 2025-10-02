@@ -1,9 +1,9 @@
 /**
- * Final Clean Solution: Network Diagnostics + Anti-Detection Automation
- * Combines comprehensive network testing with dual-approach Chrome testing
+ * Network Diagnostics Solution: Comprehensive connectivity testing for Redeban
+ * Used to diagnose network issues and validate Chrome functionality in Fargate
  *
  * @author Atlas Automation Team
- * @version 4.1.0
+ * @version 2.0.0
  */
 
 const https = require('https');
@@ -113,10 +113,10 @@ function testConnection(url) {
 }
 
 /**
- * Phase 2: Dual Chrome Testing (Simple first, then Stealth)
+ * Phase 2: Chrome Page Validation Testing
  */
 async function runDualChromeTest(processUUID) {
-  log('🥷 Phase 2: Dual Chrome Testing', 'step');
+  log('🔍 Running Chrome page validation tests...', 'step');
 
   const tempDir = '/tmp/chrome-dual';
   if (!fs.existsSync(tempDir)) {
@@ -166,7 +166,7 @@ async function runDualChromeTest(processUUID) {
   const stealthResult = await runChromeTest(stealthArgs, 'stealth', processUUID);
 
   // Compare results and return the best one
-  log('📊 Comparing both approaches:', 'step');
+  log('📊 Comparing Chrome approaches:', 'step');
   log(`Simple Chrome: ${simpleResult.success ? 'SUCCESS' : 'FAILED'} (${simpleResult.screenshotSize || 0} bytes)`,
       simpleResult.success ? 'success' : 'error');
   log(`Stealth Chrome: ${stealthResult.success ? 'SUCCESS' : 'FAILED'} (${stealthResult.screenshotSize || 0} bytes)`,
@@ -266,38 +266,37 @@ async function runChromeTest(chromeArgs, testName, processUUID) {
 }
 
 /**
- * Main orchestrator function
+ * Main diagnostic function
  */
-async function runComprehensiveSolution() {
+async function runDiagnosticsSolution() {
   const processUUID = generateRedebanProcessUUID();
   const startTime = new Date();
 
   try {
-    log('🚀 Starting Comprehensive Redeban Solution', 'step');
+    log('🚀 Starting Network Diagnostics for Redeban', 'step');
     log(`📋 Process UUID: ${processUUID}`, 'info');
 
     // Write initial metadata
     await writeMetadataToS3('started', {
       siteUrl: config.siteUrl,
-      username: config.username,
       startTime: startTime.toISOString(),
-      approach: 'comprehensive-dual-chrome'
+      approach: 'network-diagnostics'
     }, processUUID);
 
     // Phase 1: Network diagnostics
     const networkResults = await runNetworkDiagnostics();
 
-    // Phase 2: Dual Chrome testing
+    // Phase 2: Chrome validation testing
     const chromeResult = await runDualChromeTest(processUUID);
 
     // Final assessment
     const overallSuccess = chromeResult.success;
 
     if (overallSuccess) {
-      log('🎉 Comprehensive solution completed successfully!', 'success');
-      log(`✅ Working method: ${chromeResult.method}`, 'success');
+      log('🎉 Network diagnostics completed successfully!', 'success');
+      log(`✅ Chrome validation: ${chromeResult.method}`, 'success');
     } else {
-      log('❌ All Chrome approaches failed', 'error');
+      log('❌ Chrome validation failed', 'error');
       log(`📋 Last attempt: ${chromeResult.method} - ${chromeResult.error || chromeResult.message}`, 'info');
     }
 
@@ -308,13 +307,13 @@ async function runComprehensiveSolution() {
       status: overallSuccess ? 'success' : 'failed',
       networkResults,
       chromeResult,
-      approach: 'comprehensive-dual-chrome'
+      approach: 'network-diagnostics'
     }, processUUID);
 
     return { success: overallSuccess, networkResults, chromeResult };
 
   } catch (error) {
-    log(`❌ Comprehensive solution error: ${error.message}`, 'error');
+    log(`❌ Network diagnostics error: ${error.message}`, 'error');
 
     await writeMetadataToS3('failed', {
       endTime: new Date().toISOString(),
@@ -328,14 +327,14 @@ async function runComprehensiveSolution() {
 
 // Run if called directly
 if (require.main === module) {
-  runComprehensiveSolution().catch((error) => {
+  runDiagnosticsSolution().catch((error) => {
     console.error('Fatal error:', error);
     process.exit(1);
   });
 }
 
 module.exports = {
-  runComprehensiveSolution,
+  runDiagnosticsSolution,
   runNetworkDiagnostics,
   runDualChromeTest
 };

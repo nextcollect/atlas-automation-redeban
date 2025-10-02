@@ -5,6 +5,7 @@
   "main": "src/redeban.js",
   "scripts": {
     "start": "node src/redeban.js",
+    "diagnostics": "node src/redeban-final-solution.js",
     "test": "npm run lint && npm run test:unit",
     "test:unit": "jest",
     "lint": "eslint src/**/*.js",
