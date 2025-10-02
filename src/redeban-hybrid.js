@@ -240,6 +240,15 @@ async function loginWithChromeDirect(url, credentials, processUUID) {
           note: 'Chrome directo puede acceder al sitio - login simulado'
         };
 
+        // Get bucket from config
+        const config = require('./modules/config');
+        const bucket = config.s3BucketEvidence || 'atlas-dev-us-east-1-s3-automation-evidence-redeban';
+
+        // Upload initial screenshot to S3
+        uploadScreenshotToS3(screenshotStart, 'chrome-login-start.png', bucket, processUUID)
+          .then(() => log('✅ Screenshot inicial subido a S3', 'success'))
+          .catch(err => log(`⚠️ Error subiendo screenshot: ${err.message}`, 'warning'));
+
         // Take a final screenshot to confirm
         setTimeout(() => {
           const chrome2 = spawn('/usr/bin/google-chrome-stable', [
@@ -249,8 +258,17 @@ async function loginWithChromeDirect(url, credentials, processUUID) {
           ]);
 
           chrome2.on('close', () => {
-            log('✅ Login Chrome directo completado', 'success');
-            resolve(loginSuccess);
+            // Upload final screenshot to S3
+            uploadScreenshotToS3(screenshotEnd, 'chrome-login-end.png', bucket, processUUID)
+              .then(() => {
+                log('✅ Screenshot final subido a S3', 'success');
+                log('✅ Login Chrome directo completado', 'success');
+                resolve(loginSuccess);
+              })
+              .catch(err => {
+                log(`⚠️ Error subiendo screenshot final: ${err.message}`, 'warning');
+                resolve(loginSuccess); // Still consider it success
+              });
           });
 
           chrome2.on('error', () => {
