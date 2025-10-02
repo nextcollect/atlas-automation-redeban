@@ -353,48 +353,6 @@ async function createProxyContext(browser, config) {
 
   // Test de verificación de Oxylabs antes de proceder
   log('🔍 Verificando conectividad Oxylabs...', 'info');
-  try {
-    const testContext = await browser.newContext({
-      proxy: {
-        server: 'http://pr.oxylabs.io:7777',
-        username: credentials.username,
-        password: credentials.password
-      }
-    });
-
-    const testPage = await testContext.newPage();
-    await testPage.goto('https://ip.oxylabs.io/location', { timeout: 30000 });
-    const proxyTest = await testPage.textContent('body');
-    const proxyData = JSON.parse(proxyTest);
-
-    log(`✅ Proxy funcionando - IP: ${proxyData.ip}`, 'success');
-    log(`🌍 Ubicación proxy: ${proxyData.providers?.dbip?.country} - ${proxyData.providers?.dbip?.city}`, 'info');
-
-    await testContext.close();
-  } catch (error) {
-    log(`❌ Proxy Oxylabs falló: ${error.message}`, 'error');
-    log(`⚠️ Fallback: Intentando conexión directa...`, 'warning');
-
-    // Retornar contexto directo como fallback
-    log('🔧 Creando contexto directo con configuración anti-detección máxima', 'info');
-    return await browser.newContext({
-      ignoreHTTPSErrors: true,
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      locale: 'es-CO',
-      timezoneId: 'America/Bogota',
-      viewport: { width: 1366, height: 768 },
-      extraHTTPHeaders: {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'es-CO,es;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'sec-ch-ua': '"Chromium";v="120", "Google Chrome";v="120", "Not:A-Brand";v="99"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Windows"'
-      }
-    });
-  }
 
   const proxyConfig = {
     ignoreHTTPSErrors: true,
@@ -419,7 +377,29 @@ async function createProxyContext(browser, config) {
     }
   };
 
-  return await browser.newContext(proxyConfig);
+  try {
+    const testContext = await browser.newContext(proxyConfig);
+    const testPage = await testContext.newPage();
+    await testPage.goto('https://ip.oxylabs.io/location', { timeout: 30000 });
+    const proxyTest = await testPage.textContent('body');
+    const proxyData = JSON.parse(proxyTest);
+
+    log(`✅ Proxy funcionando - IP: ${proxyData.ip}`, 'success');
+    log(`🌍 Ubicación proxy: ${proxyData.providers?.dbip?.country} - ${proxyData.providers?.dbip?.city}`, 'info');
+
+    await testContext.close();
+    // Si llegamos aquí, el proxy funciona, retornamos configuración con proxy
+    return await browser.newContext(proxyConfig);
+  } catch (error) {
+    log(`❌ Proxy Oxylabs falló: ${error.message}`, 'error');
+    log(`⚠️ Fallback: Intentando conexión directa...`, 'warning');
+
+    // Retornar contexto directo como fallback
+    log('🔧 Creando contexto directo con configuración anti-detección máxima', 'info');
+    const directConfig = { ...proxyConfig };
+    delete directConfig.proxy; // Remover proxy para conexión directa
+    return await browser.newContext(directConfig);
+  }
 }
 
 module.exports = {
