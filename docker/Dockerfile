@@ -69,5 +69,5 @@ RUN groupadd -r automation && useradd -r -g automation -G audio,video automation
 # Switch to non-root user
 USER automation
 
-# Command to run improved Redeban automation with stealth techniques
-CMD ["node", "src/redeban.js"]
+# TEMPORARY: Test connectivity from real AWS NAT Gateway IP
+CMD ["sh", "-c", "echo 'Testing from AWS NAT Gateway IP:' && curl -I -A 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' https://pagosrecurrentes.redebandigital.com/pages/authentication/login-v1 && echo 'Test completed' && sleep 3600"]
