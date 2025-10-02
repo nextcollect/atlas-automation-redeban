@@ -210,7 +210,7 @@ async function loginWithChromeDirect(url, credentials, processUUID) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
 
-    // First: Take screenshot of login page
+    // Enhanced Chrome args with better timeouts and anti-detection
     const chromeArgs1 = [
       '--headless',
       '--no-sandbox',
@@ -220,12 +220,29 @@ async function loginWithChromeDirect(url, credentials, processUUID) {
       '--single-process',
       '--user-data-dir=' + tempDir,
       '--window-size=1366,768',
-      '--timeout=15000',
+      // Extended timeouts
+      '--timeout=60000',
+      '--navigation-timeout=60000',
+      '--load-timeout=60000',
+      // Anti-detection
+      '--disable-blink-features=AutomationControlled',
+      '--exclude-switches=enable-automation',
+      '--disable-extensions',
+      '--disable-plugins',
+      '--disable-default-apps',
+      '--disable-sync',
+      // Custom User-Agent
+      '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      // Headers simulation
+      '--accept=text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+      '--accept-language=es-CO,es;q=0.9,en;q=0.8',
       `--screenshot=${screenshotStart}`,
       url
     ];
 
-    const chrome1 = spawn('/usr/bin/google-chrome-stable', chromeArgs1);
+    const chrome1 = spawn('/usr/bin/google-chrome-stable', chromeArgs1, {
+      timeout: 90000 // 90 seconds total timeout
+    });
 
     chrome1.on('close', (code1) => {
       if (code1 === 0 && fs.existsSync(screenshotStart)) {
