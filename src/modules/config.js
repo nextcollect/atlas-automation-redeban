@@ -42,40 +42,7 @@ const config = {
   s3KeyInput: process.env.S3_KEY_INPUT,
   s3BucketEvidence: process.env.S3_BUCKET_EVIDENCE,
   s3KeyPrefix: process.env.S3_KEY_PREFIX,
-  // Puppeteer configuration optimized for AWS Fargate direct connectivity
-  puppeteerOptions: {
-    headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || (process.env.NODE_ENV === 'production' ? '/usr/bin/google-chrome-stable' : undefined),
-    args: [
-      // Essential security flags for containerized environments
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-
-      // Core performance flags
-      '--disable-gpu',
-      '--single-process',
-      '--no-zygote',
-
-      // Network and security
-      '--ignore-certificate-errors',
-      '--ignore-ssl-errors',
-      '--disable-web-security',
-
-      // Memory optimization for Fargate
-      '--memory-pressure-off',
-      '--max_old_space_size=4096',
-
-      // Anti-detection (minimal set)
-      '--disable-blink-features=AutomationControlled',
-      '--disable-extensions',
-      '--no-first-run',
-      '--disable-default-apps'
-    ],
-    timeout: 45000,
-    ignoreDefaultArgs: ['--enable-automation']
-  },
-  // Keep Playwright as fallback
+  // Playwright configuration for browser automation
   browserOptions: {
     headless: true,
     args: [
