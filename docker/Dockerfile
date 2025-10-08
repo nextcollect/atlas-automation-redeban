@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/playwright:v1.52.0-jammy
 
 WORKDIR /usr/src/app
 
-# Install curl for testing
+# Install curl and force update
 RUN apt-get update && apt-get install -y \
     curl \
     && apt-get clean \
