@@ -3,9 +3,16 @@ FROM mcr.microsoft.com/playwright:v1.52.0-jammy
 
 WORKDIR /usr/src/app
 
-# Install curl and force update
+# Install curl and update critical security packages
 RUN apt-get update && apt-get install -y \
     curl \
+    && apt-get upgrade -y \
+    libsqlite3-0 \
+    libsoup-3.0-0 \
+    libsoup2.4-1 \
+    libssl3 \
+    openssl \
+    libabsl20210324 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
