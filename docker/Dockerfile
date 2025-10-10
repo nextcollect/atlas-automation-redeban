@@ -12,6 +12,16 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Remove unnecessary packages that contribute to vulnerabilities
+RUN apt-get update && apt-get remove -y \
+    gstreamer1.0-plugins-bad \
+    libgstreamer-plugins-bad1.0-0 \
+    libzvbi0t64 \
+    zvbi \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy package files
 COPY package*.json ./
 
