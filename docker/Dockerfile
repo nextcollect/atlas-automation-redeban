@@ -1,5 +1,5 @@
 # Use Node.js Alpine for minimal vulnerabilities
-FROM node:22-alpine
+FROM node:24.10.0-alpine3.22
 
 WORKDIR /usr/src/app
 
@@ -14,7 +14,8 @@ RUN apk add --no-cache \
     ttf-freefont \
     curl \
     && apk upgrade --no-cache \
-    && apk add --no-cache openssl=3.5.4-r0
+    && apk add --no-cache openssl=3.5.4-r0 \
+    && apk upgrade --no-cache busybox
 
 # Copy package files
 COPY package*.json ./
