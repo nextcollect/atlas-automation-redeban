@@ -12,7 +12,8 @@ RUN apk add --no-cache \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
-    curl
+    curl \
+    && apk upgrade --no-cache openssl
 
 # Copy package files
 COPY package*.json ./
