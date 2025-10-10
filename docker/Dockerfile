@@ -13,7 +13,8 @@ RUN apk add --no-cache \
     ca-certificates \
     ttf-freefont \
     curl \
-    && apk upgrade --no-cache openssl
+    && apk upgrade --no-cache \
+    && apk add --no-cache openssl=3.5.4-r0
 
 # Copy package files
 COPY package*.json ./
