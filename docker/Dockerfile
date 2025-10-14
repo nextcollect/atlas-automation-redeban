@@ -8,24 +8,13 @@ RUN apk add --no-cache \
     chromium \
     nss \
     freetype \
-    freetype-dev \
     harfbuzz \
     ca-certificates \
     ttf-freefont \
     curl \
-    # Additional dependencies for ECS/Fargate
-    libx11 \
-    libxcomposite \
-    libxdamage \
-    libxrandr \
-    libgconf \
-    libasound \
-    libxtst \
-    libxss \
     # Create shared memory directory
     && mkdir -p /tmp && chmod 1777 /tmp \
     && apk upgrade --no-cache \
-    && apk add --no-cache openssl=3.5.4-r0 \
     && apk upgrade --no-cache busybox
 
 # Copy package files
