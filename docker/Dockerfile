@@ -3,10 +3,23 @@ FROM node:24-slim
 
 WORKDIR /usr/src/app
 
-# Install system dependencies for Playwright and security updates
+# Install comprehensive system dependencies for Playwright
 RUN apt-get update && apt-get install -y \
+    # Basic system tools
     curl \
+    wget \
+    gnupg \
+    ca-certificates \
+    apt-transport-https \
+    software-properties-common \
+    # X11 and display dependencies
+    xvfb \
+    x11vnc \
+    fluxbox \
+    dbus-x11 \
+    # Core Playwright browser dependencies
     libnss3 \
+    libnspr4 \
     libatk-bridge2.0-0 \
     libdrm2 \
     libxkbcommon0 \
@@ -15,13 +28,37 @@ RUN apt-get update && apt-get install -y \
     libxrandr2 \
     libgbm1 \
     libxss1 \
-    libasound2 \
     libatspi2.0-0 \
     libgtk-3-0 \
-    fonts-liberation \
-    libappindicator3-1 \
+    libgdk-pixbuf2.0-0 \
+    libxfixes3 \
+    libxi6 \
+    libxcursor1 \
     libxtst6 \
+    libxrender1 \
+    # Audio dependencies
+    libasound2 \
+    libpulse0 \
+    # Font and rendering dependencies
+    fonts-liberation \
+    fonts-noto-color-emoji \
+    fonts-dejavu-core \
+    fonts-freefont-ttf \
+    fontconfig \
+    # Additional GUI dependencies
+    libappindicator3-1 \
+    libsecret-1-0 \
     xdg-utils \
+    # Development tools sometimes needed
+    build-essential \
+    python3 \
+    python3-pip \
+    # Media libraries
+    libavcodec58 \
+    libavformat58 \
+    # Additional security libraries
+    libgconf-2-4 \
+    libxaw7 \
     && apt-get upgrade -y \
     && apt-get dist-upgrade -y \
     && apt-get autoremove -y \
