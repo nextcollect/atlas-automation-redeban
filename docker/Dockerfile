@@ -1,41 +1,21 @@
-# Use Node.js 24 official image (Debian-based, more secure than busybox)
-FROM node:24-slim
+# Use Node.js Alpine for minimal vulnerabilities
+FROM node:24.10.0-alpine3.22
 
 WORKDIR /usr/src/app
 
-# Install system dependencies for Playwright (minimal working set)
-RUN apt-get update && apt-get install -y \
-    # Basic system tools
-    curl \
-    wget \
-    gnupg \
+# Install system dependencies for Playwright
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    freetype-dev \
+    harfbuzz \
     ca-certificates \
-    # Core Playwright browser dependencies
-    libnss3 \
-    libatk-bridge2.0-0 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxrandr2 \
-    libgbm1 \
-    libxss1 \
-    libatspi2.0-0 \
-    libgtk-3-0 \
-    libxtst6 \
-    # Audio dependencies
-    libasound2 \
-    # Font and rendering dependencies
-    fonts-liberation \
-    fontconfig \
-    # Additional GUI dependencies
-    libappindicator3-1 \
-    xdg-utils \
-    && apt-get upgrade -y \
-    && apt-get dist-upgrade -y \
-    && apt-get autoremove -y \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    ttf-freefont \
+    curl \
+    && apk upgrade --no-cache \
+    && apk add --no-cache openssl=3.5.4-r0 \
+    && apk upgrade --no-cache busybox
 
 # Copy package files
 COPY package*.json ./
@@ -50,8 +30,9 @@ COPY . .
 ENV NODE_ENV=production
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Install Playwright browsers and dependencies
-RUN npx playwright install --with-deps chromium
+# Set environment for Playwright to use system Chromium
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true \
+    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Add version file
 RUN echo "{\"version\": \"$(date +%Y%m%d%H%M%S)\", \"buildDate\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > version.json
