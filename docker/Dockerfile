@@ -6,6 +6,8 @@ WORKDIR /usr/src/app
 # Install curl and apply all security updates
 RUN apt-get update && apt-get install -y \
     curl \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
     && apt-get upgrade -y \
     && apt-get dist-upgrade -y \
     && apt-get autoremove -y \
