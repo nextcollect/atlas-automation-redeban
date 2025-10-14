@@ -1,13 +1,27 @@
-# Use official Playwright image with pre-installed browsers
-FROM mcr.microsoft.com/playwright:v1.52.0-jammy
+# Use Node.js 24 official image (Debian-based, more secure than busybox)
+FROM node:24-slim
 
 WORKDIR /usr/src/app
 
-# Install curl and apply all security updates
+# Install system dependencies for Playwright and security updates
 RUN apt-get update && apt-get install -y \
     curl \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
+    libnss3 \
+    libatk-bridge2.0-0 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libxss1 \
+    libasound2 \
+    libatspi2.0-0 \
+    libgtk-3-0 \
+    fonts-liberation \
+    libappindicator3-1 \
+    libxtst6 \
+    xdg-utils \
     && apt-get upgrade -y \
     && apt-get dist-upgrade -y \
     && apt-get autoremove -y \
@@ -27,8 +41,8 @@ COPY . .
 ENV NODE_ENV=production
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Install Playwright browsers (already optimized in this image)
-RUN npx playwright install --with-deps
+# Install Playwright browsers and dependencies
+RUN npx playwright install --with-deps chromium
 
 # Add version file
 RUN echo "{\"version\": \"$(date +%Y%m%d%H%M%S)\", \"buildDate\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > version.json
