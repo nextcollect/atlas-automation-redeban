@@ -1,5 +1,5 @@
-# Use official Playwright image with pre-installed browsers (stable)
-FROM mcr.microsoft.com/playwright:v1.56.0-noble
+# Use official Playwright image with pre-installed browsers
+FROM mcr.microsoft.com/playwright:v1.52.0-jammy
 
 WORKDIR /usr/src/app
 
