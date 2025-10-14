@@ -85,6 +85,8 @@ async function uploadFile() {
   log('🔧 Lanzando navegador con Playwright Chromium...', 'info');
   const browser = await chromium.launch({
     ...config.browserOptions,
+    // Use system Chromium in Alpine
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
     // Configuración anti-detección mejorada para bypass de nuevas políticas
     ignoreDefaultArgs: [
       '--enable-automation',
@@ -93,6 +95,11 @@ async function uploadFile() {
     args: [
       // Flags base existentes
       ...config.browserOptions.args,
+
+      // ECS/Fargate compatibility (required for containerized environments)
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
 
       // Anti-detección avanzada (post-subnet-change fixes)
       '--disable-blink-features=AutomationControlled',
