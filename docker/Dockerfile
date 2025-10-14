@@ -1,23 +1,16 @@
-# Use Node.js Alpine for minimal vulnerabilities
-FROM node:24.10.0-alpine3.22
+# Use official Playwright image with pre-installed browsers (stable)
+FROM mcr.microsoft.com/playwright:v1.56.0-noble
 
 WORKDIR /usr/src/app
 
-# Install system dependencies for Playwright
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
+# Install curl and apply all security updates
+RUN apt-get update && apt-get install -y \
     curl \
-    dumb-init \
-    tzdata \
-    && apk upgrade --no-cache \
-    && apk add --no-cache openssl=3.5.4-r0 \
-    && apk upgrade --no-cache busybox
+    && apt-get upgrade -y \
+    && apt-get dist-upgrade -y \
+    && apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
@@ -32,10 +25,8 @@ COPY . .
 ENV NODE_ENV=production
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
-# Set environment for Playwright to use system Chromium
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true \
-    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser \
-    NODE_TLS_REJECT_UNAUTHORIZED=0
+# Install Playwright browsers (already optimized in this image)
+RUN npx playwright install --with-deps
 
 # Add version file
 RUN echo "{\"version\": \"$(date +%Y%m%d%H%M%S)\", \"buildDate\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > version.json
