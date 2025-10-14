@@ -3,7 +3,7 @@ FROM node:24.10.0-alpine3.22
 
 WORKDIR /usr/src/app
 
-# Install system dependencies with network tools for connectivity
+# Install system dependencies for Playwright
 RUN apk add --no-cache \
     chromium \
     nss \
@@ -15,9 +15,6 @@ RUN apk add --no-cache \
     curl \
     dumb-init \
     tzdata \
-    dns-root-data \
-    bind-tools \
-    iputils \
     && apk upgrade --no-cache \
     && apk add --no-cache openssl=3.5.4-r0 \
     && apk upgrade --no-cache busybox
