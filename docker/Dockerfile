@@ -32,10 +32,10 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Set environment for Playwright to use system Chromium
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true \
-    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 
-# Add version file
-RUN echo "{\"version\": \"$(date +%Y%m%d%H%M%S)\", \"buildDate\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\"}" > version.json
+# Add version file with Alpine marker
+RUN echo "{\"version\": \"$(date +%Y%m%d%H%M%S)\", \"buildDate\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\", \"base\": \"alpine\"}" > version.json
 
 # Start the automation
 CMD ["node", "src/redeban.js"]
