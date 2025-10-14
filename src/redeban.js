@@ -85,6 +85,8 @@ async function uploadFile() {
   log('🔧 Lanzando navegador con Playwright Chromium...', 'info');
   const browser = await chromium.launch({
     ...config.browserOptions,
+    // Use system Chromium in Alpine
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
     // Configuración anti-detección mejorada para bypass de nuevas políticas
     ignoreDefaultArgs: [
       '--enable-automation',
