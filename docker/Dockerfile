@@ -32,7 +32,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Set environment for Playwright to use system Chromium
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=true \
-    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium \
     NODE_TLS_REJECT_UNAUTHORIZED=0
 
 # Add version file with Alpine marker

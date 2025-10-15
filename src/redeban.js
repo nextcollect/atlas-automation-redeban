@@ -100,6 +100,9 @@ async function uploadFile() {
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-software-rasterizer',
+      '--virtual-time-budget=5000',
 
       // Anti-detección avanzada (post-subnet-change fixes)
       '--disable-blink-features=AutomationControlled',
