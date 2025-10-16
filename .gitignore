@@ -4,7 +4,7 @@ npm-debug.log*
 
 # Environment
 .env
-.env.local
+.env.*
 .env.production
 nodemon.json
 
@@ -24,6 +24,7 @@ coverage/
 # Build
 dist/
 build/
+build-local.sh
 
 # IDE
 .vscode/
@@ -41,3 +42,6 @@ Thumbs.db
 
 # Screenshots (local testing)
 screenshots/
+
+# Test
+test/

@@ -72,6 +72,7 @@ async function uploadFile() {
 
   log('Iniciando automatización Redeban...', 'step');
   log(`Process UUID: ${processUUID}`, 'info');
+  log('🚀 Deployment Status: Atlas Redeban automation started successfully', 'success');
 
 
   // Escribir metadata de inicio
@@ -308,6 +309,7 @@ async function uploadFile() {
     await takeScreenshot(page, 'upload-result', config.s3BucketEvidence, processUUID);
 
     log('Archivo subido exitosamente', 'success');
+    log('🎯 Deployment Confirmation: Atlas Redeban process completed successfully', 'success');
 
     // Escribir metadata de éxito
     await writeMetadataToS3('completed', {
