@@ -14,8 +14,11 @@ RUN apk add --no-cache \
     curl \
     # Create shared memory directory
     && mkdir -p /tmp && chmod 1777 /tmp \
+    # Update package index and upgrade all packages including pcre2
+    && apk update \
     && apk upgrade --no-cache \
-    && apk upgrade --no-cache busybox
+    && apk upgrade --no-cache busybox \
+    && apk upgrade --no-cache pcre2
 
 # Copy package files
 COPY package*.json ./
