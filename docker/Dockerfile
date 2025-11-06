@@ -14,11 +14,15 @@ RUN apk add --no-cache \
     curl \
     # Create shared memory directory
     && mkdir -p /tmp && chmod 1777 /tmp \
-    # Update package index and upgrade all packages including pcre2
+    # Update package index and upgrade all packages to fix CVE-2025-57052 (cJSON) and CVE-2025-64118 (tar)
     && apk update \
     && apk upgrade --no-cache \
     && apk upgrade --no-cache busybox \
-    && apk upgrade --no-cache pcre2
+    && apk upgrade --no-cache pcre2 \
+    # Explicitly upgrade cJSON to patch CVE-2025-57052
+    && apk upgrade --no-cache cjson \
+    # Upgrade tar to patch CVE-2025-64118
+    && apk upgrade --no-cache tar
 
 # Copy package files
 COPY package*.json ./
